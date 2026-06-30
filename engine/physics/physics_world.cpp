@@ -69,7 +69,7 @@ void PhysicsWorld::Step(ECS::Registry* registry, float dt) {
     struct Finder {
         static void CachePositions(Scene::SceneNode* node, std::unordered_map<ECS::Entity, glm::vec3>& outCache) {
             if (node->GetEntity() != ECS::NULL_ENTITY) {
-                outCache[node->GetEntity()] = node->GetLocalPosition();
+                outCache[node->GetEntity()] = glm::vec3(node->GetWorldMatrix()[3]);
             }
             for (const auto& child : node->GetChildren()) {
                 CachePositions(child.get(), outCache);
@@ -77,6 +77,7 @@ void PhysicsWorld::Step(ECS::Registry* registry, float dt) {
         }
     };
     if (rootNode) {
+        rootNode->UpdateTransforms();
         Finder::CachePositions(rootNode, entityPositions);
     }
 
@@ -122,8 +123,9 @@ void PhysicsWorld::Step(ECS::Registry* registry, float dt) {
         }
 
         // B. Query Broad-phase for other colliders
-        m_queryResults.clear();
+        m_queryResults.resize(1024);
         uint32_t overlapCount = m_spatialGrid.Query(aabbA, m_queryResults.data(), 1024, entityA);
+        m_queryResults.resize(overlapCount);
 
         for (uint32_t k = 0; k < overlapCount; ++k) {
             ECS::Entity entityB = m_queryResults[k];
@@ -227,15 +229,20 @@ void PhysicsWorld::Step(ECS::Registry* registry, float dt) {
                 const glm::vec3& cachedPos = inCache.at(node->GetEntity());
                 auto& pc = reg->GetComponent<PhysicsComponent>(node->GetEntity());
                 
+                glm::vec3 nextPos = cachedPos;
                 if (pc.bodyType == BodyType::Dynamic) {
-                    glm::vec3 nextPos = cachedPos + pc.velocity * dt;
-                    node->SetLocalPosition(nextPos);
+                    nextPos = cachedPos + pc.velocity * dt;
                 } else if (pc.bodyType == BodyType::Kinematic) {
-                    glm::vec3 nextPos = cachedPos + pc.velocity * dt;
-                    node->SetLocalPosition(nextPos);
-                } else {
-                    node->SetLocalPosition(cachedPos); // penetration correction applied
+                    nextPos = cachedPos + pc.velocity * dt;
                 }
+                
+                if (node->GetParent()) {
+                    glm::mat4 invParent = glm::inverse(node->GetParent()->GetWorldMatrix());
+                    node->SetLocalPosition(glm::vec3(invParent * glm::vec4(nextPos, 1.0f)));
+                } else {
+                    node->SetLocalPosition(nextPos);
+                }
+                node->UpdateTransforms(node->GetParent() ? node->GetParent()->GetWorldMatrix() : glm::mat4(1.0f));
             }
             for (const auto& child : node->GetChildren()) {
                 ApplyPositions(child.get(), inCache, reg, dt);

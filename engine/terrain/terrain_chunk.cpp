@@ -1,4 +1,5 @@
 #include "terrain_chunk.hpp"
+#include "terrain_manager.hpp"
 #include "core/logger.hpp"
 #include <cmath>
 #include <cstring>
@@ -146,9 +147,13 @@ void TerrainChunk::GenerateCPUData(int lod) {
 
 bool TerrainChunk::RebuildIndicesForStitching(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue,
                                             int lodNorth, int lodSouth, int lodEast, int lodWest, StagingResources& outResources) {
-    if (lodNorth == m_lodNorth && lodSouth == m_lodSouth && lodEast == m_lodEast && lodWest == m_lodWest && m_indexBuffer != VK_NULL_HANDLE) {
-        return true; // Already up-to-date
+    if (lodNorth == m_lodNorth && lodSouth == m_lodSouth && lodEast == m_lodEast && lodWest == m_lodWest) {
+        if (device == VK_NULL_HANDLE || m_indexBuffer != VK_NULL_HANDLE) {
+            return true; // Already up-to-date
+        }
     }
+
+    TerrainManager::Get().IncrementStitchingRebuilds();
 
     m_lodNorth = lodNorth;
     m_lodSouth = lodSouth;
@@ -276,6 +281,7 @@ bool TerrainChunk::RebuildIndicesForStitching(VkDevice device, VkPhysicalDevice 
 
     // If already uploaded, we need to recreate the index buffer on GPU
     if (m_uploaded && device != VK_NULL_HANDLE) {
+        TerrainManager::Get().IncrementStitchingUploads();
         // Destroy old index buffer
         if (m_indexBuffer != VK_NULL_HANDLE) {
             vkDestroyBuffer(device, m_indexBuffer, nullptr);

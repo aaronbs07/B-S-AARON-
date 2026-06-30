@@ -29,6 +29,11 @@ VulkanContext::~VulkanContext() {
 }
 
 bool VulkanContext::Initialize(Window::Window* window) {
+    if (window == nullptr) {
+        Core::Logger::Error("VulkanContext", "Cannot initialize Vulkan context with null window pointer.");
+        return false;
+    }
+
     Core::Logger::Info("VulkanContext", "Initializing Volk...");
     VkResult result = volkInitialize();
     if (result != VK_SUCCESS) {
@@ -58,7 +63,7 @@ void VulkanContext::Shutdown() {
         m_device = VK_NULL_HANDLE;
     }
 
-    if (m_surface != VK_NULL_HANDLE) {
+    if (m_surface != VK_NULL_HANDLE && m_instance != VK_NULL_HANDLE) {
         Core::Logger::Info("VulkanContext", "Destroying Vulkan surface...");
         vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
         m_surface = VK_NULL_HANDLE;
@@ -346,6 +351,12 @@ bool VulkanContext::CreateImageViews() {
 }
 
 void VulkanContext::CleanupSwapChain() {
+    if (m_device == VK_NULL_HANDLE) {
+        m_swapChainImageViews.clear();
+        m_swapChain = VK_NULL_HANDLE;
+        return;
+    }
+
     for (auto imageView : m_swapChainImageViews) {
         if (imageView != VK_NULL_HANDLE) {
             vkDestroyImageView(m_device, imageView, nullptr);

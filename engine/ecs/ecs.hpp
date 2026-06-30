@@ -7,6 +7,7 @@
 #include <limits>
 #include <tuple>
 #include <algorithm>
+#include <cassert>
 #include "core/logger.hpp"
 
 namespace KumariEngine::ECS {
@@ -135,26 +136,38 @@ public:
         return static_cast<ComponentPool<T>*>(it->second.get());
     }
 
+    bool IsAlive(Entity entity) const {
+        if (entity == NULL_ENTITY || entity >= m_nextEntity) return false;
+        if (entity < m_activeEntities.size()) {
+            return m_activeEntities[entity];
+        }
+        return false;
+    }
+
     template<typename T, typename... Args>
     T& AddComponent(Entity entity, Args&&... args) {
+        assert(IsAlive(entity) && "Cannot add component to a dead or inactive entity");
         auto pool = GetPool<T>();
         return pool->Add(entity, T(std::forward<Args>(args)...));
     }
 
     template<typename T>
     void RemoveComponent(Entity entity) {
+        assert(IsAlive(entity) && "Cannot remove component from a dead or inactive entity");
         auto pool = GetPool<T>();
         pool->Remove(entity);
     }
 
     template<typename T>
     T& GetComponent(Entity entity) {
+        assert(IsAlive(entity) && "Cannot get component from a dead or inactive entity");
         auto pool = GetPool<T>();
         return pool->Get(entity);
     }
 
     template<typename T>
     bool HasComponent(Entity entity) {
+        if (!IsAlive(entity)) return false;
         auto pool = GetPool<T>();
         return pool->Has(entity);
     }
@@ -260,6 +273,7 @@ public:
 private:
     Entity m_nextEntity = 1;
     std::vector<Entity> m_freeEntities;
+    std::vector<bool> m_activeEntities;
     std::unordered_map<std::type_index, std::unique_ptr<IComponentPool>> m_componentPools;
 };
 

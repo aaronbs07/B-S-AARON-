@@ -33,13 +33,17 @@ bool TerrainRenderer::Initialize(VkDevice device, VkRenderPass renderPass, VkPhy
 void TerrainRenderer::Shutdown(VkDevice device) {
     Core::Logger::Info("TerrainRenderer", "Shutting down Vulkan Terrain Renderer...");
 
+    if (device == VK_NULL_HANDLE) return;
+
     if (m_solidPipeline != VK_NULL_HANDLE) {
         vkDestroyPipeline(device, m_solidPipeline, nullptr);
         m_solidPipeline = VK_NULL_HANDLE;
     }
 
-    if (m_wireframePipeline != VK_NULL_HANDLE) {
+    if (m_wireframePipeline != VK_NULL_HANDLE && m_wireframePipeline != m_solidPipeline) {
         vkDestroyPipeline(device, m_wireframePipeline, nullptr);
+        m_wireframePipeline = VK_NULL_HANDLE;
+    } else {
         m_wireframePipeline = VK_NULL_HANDLE;
     }
 

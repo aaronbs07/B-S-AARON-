@@ -169,52 +169,66 @@ void VulkanRenderer::Shutdown() {
     if (m_context == nullptr) return;
 
     VkDevice device = m_context->GetDevice();
-    vkDeviceWaitIdle(device);
-
-    Physics::PhysicsDebugRenderer::Get().Shutdown(device);
-
-    if (m_terrainRenderer) {
-        m_terrainRenderer->Shutdown(device);
-        m_terrainRenderer.reset();
-    }
-
-    Terrain::TerrainManager::Get().Shutdown(device);
-
-    Core::Logger::Info("VulkanRenderer", "Destroying Vulkan synchronization structures...");
-    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
-        vkDestroySemaphore(device, m_imageAvailableSemaphores[i], nullptr);
-        vkDestroySemaphore(device, m_renderFinishedSemaphores[i], nullptr);
-        vkDestroyFence(device, m_inFlightFences[i], nullptr);
-    }
-
-    if (m_commandPool != VK_NULL_HANDLE) {
-        Core::Logger::Info("VulkanRenderer", "Destroying Vulkan command pool...");
-        vkDestroyCommandPool(device, m_commandPool, nullptr);
-        m_commandPool = VK_NULL_HANDLE;
-    }
-
-    for (auto framebuffer : m_swapChainFramebuffers) {
-        if (framebuffer != VK_NULL_HANDLE) {
-            vkDestroyFramebuffer(device, framebuffer, nullptr);
+    if (device != VK_NULL_HANDLE) {
+        vkDeviceWaitIdle(device);
+        Physics::PhysicsDebugRenderer::Get().Shutdown(device);
+        if (m_terrainRenderer) {
+            m_terrainRenderer->Shutdown(device);
+            m_terrainRenderer.reset();
+        }
+        Terrain::TerrainManager::Get().Shutdown(device);
+    } else {
+        if (m_terrainRenderer) {
+            m_terrainRenderer.reset();
         }
     }
-    m_swapChainFramebuffers.clear();
 
-    if (m_graphicsPipeline != VK_NULL_HANDLE) {
-        Core::Logger::Info("VulkanRenderer", "Destroying Vulkan graphics pipeline...");
-        vkDestroyPipeline(device, m_graphicsPipeline, nullptr);
-        m_graphicsPipeline = VK_NULL_HANDLE;
-    }
+    if (device != VK_NULL_HANDLE) {
+        Core::Logger::Info("VulkanRenderer", "Destroying Vulkan synchronization structures...");
+        for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+            if (static_cast<size_t>(i) < m_imageAvailableSemaphores.size() && m_imageAvailableSemaphores[i] != VK_NULL_HANDLE) {
+                vkDestroySemaphore(device, m_imageAvailableSemaphores[i], nullptr);
+                m_imageAvailableSemaphores[i] = VK_NULL_HANDLE;
+            }
+            if (static_cast<size_t>(i) < m_renderFinishedSemaphores.size() && m_renderFinishedSemaphores[i] != VK_NULL_HANDLE) {
+                vkDestroySemaphore(device, m_renderFinishedSemaphores[i], nullptr);
+                m_renderFinishedSemaphores[i] = VK_NULL_HANDLE;
+            }
+            if (static_cast<size_t>(i) < m_inFlightFences.size() && m_inFlightFences[i] != VK_NULL_HANDLE) {
+                vkDestroyFence(device, m_inFlightFences[i], nullptr);
+                m_inFlightFences[i] = VK_NULL_HANDLE;
+            }
+        }
 
-    if (m_pipelineLayout != VK_NULL_HANDLE) {
-        vkDestroyPipelineLayout(device, m_pipelineLayout, nullptr);
-        m_pipelineLayout = VK_NULL_HANDLE;
-    }
+        if (m_commandPool != VK_NULL_HANDLE) {
+            Core::Logger::Info("VulkanRenderer", "Destroying Vulkan command pool...");
+            vkDestroyCommandPool(device, m_commandPool, nullptr);
+            m_commandPool = VK_NULL_HANDLE;
+        }
 
-    if (m_renderPass != VK_NULL_HANDLE) {
-        Core::Logger::Info("VulkanRenderer", "Destroying Vulkan render pass...");
-        vkDestroyRenderPass(device, m_renderPass, nullptr);
-        m_renderPass = VK_NULL_HANDLE;
+        for (auto framebuffer : m_swapChainFramebuffers) {
+            if (framebuffer != VK_NULL_HANDLE) {
+                vkDestroyFramebuffer(device, framebuffer, nullptr);
+            }
+        }
+        m_swapChainFramebuffers.clear();
+
+        if (m_graphicsPipeline != VK_NULL_HANDLE) {
+            Core::Logger::Info("VulkanRenderer", "Destroying Vulkan graphics pipeline...");
+            vkDestroyPipeline(device, m_graphicsPipeline, nullptr);
+            m_graphicsPipeline = VK_NULL_HANDLE;
+        }
+
+        if (m_pipelineLayout != VK_NULL_HANDLE) {
+            vkDestroyPipelineLayout(device, m_pipelineLayout, nullptr);
+            m_pipelineLayout = VK_NULL_HANDLE;
+        }
+
+        if (m_renderPass != VK_NULL_HANDLE) {
+            Core::Logger::Info("VulkanRenderer", "Destroying Vulkan render pass...");
+            vkDestroyRenderPass(device, m_renderPass, nullptr);
+            m_renderPass = VK_NULL_HANDLE;
+        }
     }
 
     m_context->Shutdown();

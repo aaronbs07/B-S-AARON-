@@ -29,11 +29,12 @@ void CharacterController::Update(ECS::Registry* registry, ECS::Entity entity,
         }
     };
     if (sceneMgr.GetRootNode()) {
+        sceneMgr.GetRootNode()->UpdateTransforms();
         playerNode = NodeFinder::Find(sceneMgr.GetRootNode(), entity);
     }
     
     if (!playerNode) return;
-    glm::vec3 currentPos = playerNode->GetLocalPosition();
+    glm::vec3 currentPos = glm::vec3(playerNode->GetWorldMatrix()[3]);
 
     // Ensure collider is Capsule
     if (pc.collider.type != ColliderType::Capsule) return;
@@ -113,17 +114,18 @@ void CharacterController::Update(ECS::Registry* registry, ECS::Entity entity,
             auto& npc = registry->GetComponent<PhysicsComponent>(neighborEnt);
             
             // Resolve node position
-            struct PosQuery {
-                static glm::vec3 Get(Scene::SceneNode* node, ECS::Entity ent) {
-                    if (node->GetEntity() == ent) return node->GetLocalPosition();
+            struct NodeFinder {
+                static Scene::SceneNode* Find(Scene::SceneNode* node, ECS::Entity ent) {
+                    if (node->GetEntity() == ent) return node;
                     for (const auto& child : node->GetChildren()) {
-                        auto p = Get(child.get(), ent);
-                        if (glm::length2(p) > 1e-4f) return p;
+                        auto found = Find(child.get(), ent);
+                        if (found) return found;
                     }
-                    return glm::vec3(0.0f);
+                    return nullptr;
                 }
             };
-            glm::vec3 neighborPos = PosQuery::Get(sceneMgr.GetRootNode(), neighborEnt);
+            Scene::SceneNode* neighborNode = NodeFinder::Find(sceneMgr.GetRootNode(), neighborEnt);
+            glm::vec3 neighborPos = neighborNode ? glm::vec3(neighborNode->GetWorldMatrix()[3]) : glm::vec3(0.0f);
 
             // Filter layers
             if ((pc.collisionLayer & npc.collisionMask) == 0 || (npc.collisionLayer & pc.collisionMask) == 0) continue;
@@ -192,7 +194,13 @@ void CharacterController::Update(ECS::Registry* registry, ECS::Entity entity,
     }
 
     // 5. Update SceneNode position
-    playerNode->SetLocalPosition(currentPos);
+    if (playerNode->GetParent()) {
+        glm::mat4 invParent = glm::inverse(playerNode->GetParent()->GetWorldMatrix());
+        playerNode->SetLocalPosition(glm::vec3(invParent * glm::vec4(currentPos, 1.0f)));
+    } else {
+        playerNode->SetLocalPosition(currentPos);
+    }
+    playerNode->UpdateTransforms(playerNode->GetParent() ? playerNode->GetParent()->GetWorldMatrix() : glm::mat4(1.0f));
 }
 
 } // namespace KumariEngine::Physics

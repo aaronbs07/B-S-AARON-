@@ -30,7 +30,7 @@ void PhysicsSystem::Update(ECS::Registry* registry, float dt) {
         struct CachePositions {
             static void Run(Scene::SceneNode* node, std::unordered_map<ECS::Entity, glm::vec3>& outCache) {
                 if (node->GetEntity() != ECS::NULL_ENTITY) {
-                    outCache[node->GetEntity()] = node->GetLocalPosition();
+                    outCache[node->GetEntity()] = glm::vec3(node->GetWorldMatrix()[3]);
                 }
                 for (const auto& child : node->GetChildren()) {
                     Run(child.get(), outCache);

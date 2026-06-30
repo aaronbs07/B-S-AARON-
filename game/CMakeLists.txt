@@ -15,3 +15,12 @@ add_executable(KumariEngineSmokeTest
 target_link_libraries(KumariEngineSmokeTest PRIVATE
     KumariEngine
 )
+
+add_executable(KumariEngineRegressionTests
+    src/regression_tests.cpp
+)
+
+# Link regression test executable with the engine
+target_link_libraries(KumariEngineRegressionTests PRIVATE
+    KumariEngine
+)

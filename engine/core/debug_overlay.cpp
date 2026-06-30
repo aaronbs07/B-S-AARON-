@@ -57,6 +57,7 @@ void DebugOverlay::Update(float deltaTime, Window::Window* window) {
            << "Queue: " << queueSize << " | "
            << "Stream: " << tm.GetLastStreamingTimeMs() << "ms | "
            << "Upload: " << tm.GetLastGPUUploadTimeMs() << "ms | "
+           << "Stitch (R/U): " << tm.GetStitchingRebuildCount() << "/" << tm.GetStitchingUploadCount() << " | "
            << "Memory: " << memMB << "MB | "
            << "Wireframe: " << (tm.IsWireframe() ? "ON" : "OFF");
 
@@ -71,6 +72,7 @@ void DebugOverlay::Update(float deltaTime, Window::Window* window) {
             Logger::Info("Telemetry", "Camera Pos: [%.1f, %.1f, %.1f] | Current Chunk: (%d, %d)", camPos.x, camPos.y, camPos.z, currentChunkX, currentChunkZ);
             Logger::Info("Telemetry", "Active Chunks: %zu | Background Generation Queue: %zu | Avg Gen Time: %.1f ms", loadedChunks, queueSize, avgGenTime);
             Logger::Info("Telemetry", "Streaming Time: %.2f ms | GPU Upload Time: %.2f ms", tm.GetLastStreamingTimeMs(), tm.GetLastGPUUploadTimeMs());
+            Logger::Info("Telemetry", "Stitching Rebuilds: %zu | Stitching Uploads: %zu", tm.GetStitchingRebuildCount(), tm.GetStitchingUploadCount());
             Logger::Info("Telemetry", "Toggles: Wireframe: %s | Borders: %s | Debug LOD: %s",
                          tm.IsWireframe() ? "ON" : "OFF",
                          tm.IsChunkBordersEnabled() ? "ON" : "OFF",

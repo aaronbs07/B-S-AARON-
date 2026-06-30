@@ -33,6 +33,11 @@ public:
     size_t GetCacheHitCount() const { return m_cacheHits; }
     size_t GetCacheMissCount() const { return m_cacheMisses; }
     size_t GetMemoryEstimate() const;
+    size_t GetStitchingRebuildCount() const { return m_stitchingRebuilds; }
+    size_t GetStitchingUploadCount() const { return m_stitchingUploads; }
+    void IncrementStitchingRebuilds() { m_stitchingRebuilds++; }
+    void IncrementStitchingUploads() { m_stitchingUploads++; }
+    void ResetStitchingTelemetry() { m_stitchingRebuilds = 0; m_stitchingUploads = 0; }
 
     float GetLastStreamingTimeMs() const { return m_lastStreamingTimeMs; }
     float GetLastGPUUploadTimeMs() const { return m_lastGPUUploadTimeMs; }
@@ -128,6 +133,8 @@ private:
     size_t m_cacheMisses = 0;
     float m_lastStreamingTimeMs = 0.0f;
     float m_lastGPUUploadTimeMs = 0.0f;
+    size_t m_stitchingRebuilds = 0;
+    size_t m_stitchingUploads = 0;
 
     bool m_wireframe = false;
     bool m_chunkBorders = false;
