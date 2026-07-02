@@ -1025,6 +1025,7 @@ void VerifyGameplaySystemsTests() {
 
         // Cleanup
         std::remove(filename.c_str());
+        Terrain::TerrainManager::Get().Shutdown(VK_NULL_HANDLE);
         Scene::SceneManager::Get().Shutdown();
 
         std::cout << "    Save & Load Compatibility: PASSED" << std::endl;
@@ -1377,6 +1378,11 @@ void VerifyAudioCameraCinematicTests() {
         assert(std::abs(loadedCpc.playbackSpeed - 1.5f) < 0.01f);
 
         std::cout << "    Save/Load and Serialization: PASSED" << std::endl;
+
+        // Cleanup
+        std::remove("temp_regression_save.dat");
+        Terrain::TerrainManager::Get().Shutdown(VK_NULL_HANDLE);
+        Scene::SceneManager::Get().Shutdown();
     }
 
     std::cout << "=== ALL AUDIO, CAMERA, TIMELINE & CINEMATIC TESTS PASSED! ===" << std::endl;
@@ -1414,5 +1420,10 @@ int main() {
     std::cout << "Audio, Camera, Timeline & Cinematic Tests passed!" << std::endl;
 
     std::cout << "ALL REGRESSION TESTS COMPLETED SUCCESSFULLY!" << std::endl;
+
+    // Ensure final cleanup of singletons before exit
+    Terrain::TerrainManager::Get().Shutdown(VK_NULL_HANDLE);
+    Scene::SceneManager::Get().Shutdown();
+
     return 0;
 }

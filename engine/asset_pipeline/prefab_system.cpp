@@ -15,6 +15,7 @@
 #include "scripting/script_component.hpp"
 #include "scripting/script_engine.hpp"
 #include "core/logger.hpp"
+#include "core/vfs.hpp"
 #include <fstream>
 #include <sstream>
 
@@ -279,13 +280,13 @@ ECS::Entity PrefabSystem::InstantiatePrefab(const std::string& prefabAssetGuid, 
         return ECS::NULL_ENTITY;
     }
 
-    std::ifstream file(path, std::ios::binary);
-    if (!file.is_open()) {
-        Core::Logger::Error("PrefabSystem", "Failed to open prefab file for reading: %s", path.c_str());
+    std::vector<uint8_t> buffer = Core::VFS::Get().Read(path);
+    if (buffer.empty()) {
+        Core::Logger::Error("PrefabSystem", "Failed to read prefab file from VFS: %s", path.c_str());
         return ECS::NULL_ENTITY;
     }
 
-    Save::BinaryReader reader(file);
+    Save::BinaryReader reader(buffer);
     char magic[4];
     if (!reader.ReadBytes(magic, 4) || std::string(magic, 4) != "KMPR") {
         Core::Logger::Error("PrefabSystem", "Invalid prefab magic in: %s", path.c_str());
@@ -623,8 +624,6 @@ ECS::Entity PrefabSystem::InstantiatePrefab(const std::string& prefabAssetGuid, 
             m_registry->AddComponent<PrefabInstanceComponent>(temp.newEntity, prefabAssetGuid, temp.origGuid, isRoot, std::vector<PrefabOverride>{});
         }
     }
-
-    file.close();
     
     // Register dependency from the active scene to this Prefab
     // Scene can register its dependencies dynamically

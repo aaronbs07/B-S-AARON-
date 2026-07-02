@@ -6,6 +6,7 @@ extern "C" {
 #include <lauxlib.h>
 }
 #include "core/logger.hpp"
+#include "core/vfs.hpp"
 #include "core/event_manager.hpp"
 #include "scene/scene_manager.hpp"
 #include "scene/scene_node.hpp"
@@ -1263,7 +1264,13 @@ int ScriptEngine::LoadScript(ECS::Entity entity, const std::string& scriptPath) 
     int errIdx = lua_gettop(m_luaState) + 1;
     lua_pushcfunction(m_luaState, Lua_MessageHandler);
 
-    int status = luaL_loadfile(m_luaState, scriptPath.c_str());
+    std::vector<uint8_t> buffer = Core::VFS::Get().Read(scriptPath);
+    int status;
+    if (buffer.empty()) {
+        status = LUA_ERRFILE;
+    } else {
+        status = luaL_loadbuffer(m_luaState, reinterpret_cast<const char*>(buffer.data()), buffer.size(), scriptPath.c_str());
+    }
     if (status != LUA_OK) {
         std::string err = lua_tostring(m_luaState, -1);
         lua_pop(m_luaState, 2);
@@ -2006,7 +2013,13 @@ bool ScriptEngine::ReloadScript(const std::string& scriptPath) {
     int errIdx = lua_gettop(m_luaState) + 1;
     lua_pushcfunction(m_luaState, Lua_MessageHandler);
 
-    int status = luaL_loadfile(m_luaState, scriptPath.c_str());
+    std::vector<uint8_t> buffer = Core::VFS::Get().Read(scriptPath);
+    int status;
+    if (buffer.empty()) {
+        status = LUA_ERRFILE;
+    } else {
+        status = luaL_loadbuffer(m_luaState, reinterpret_cast<const char*>(buffer.data()), buffer.size(), scriptPath.c_str());
+    }
     if (status != LUA_OK) {
         std::string err = lua_tostring(m_luaState, -1);
         lua_pop(m_luaState, 2);

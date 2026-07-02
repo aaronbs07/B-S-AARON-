@@ -733,14 +733,16 @@ void ReplicationManager::ClientProcessSnapshot(PacketReader& reader) {
         if (isDestroyed) {
             if (isDelta) {
                 ECS::Entity entity = m_registry->GetEntityByGUID(guid);
-                Scene::SceneNode* node = nullptr;
-                if (Scene::SceneManager::Get().GetRegistry() == m_registry) {
-                    node = Scene::SceneManager::Get().GetNodeByEntity(entity);
-                }
-                if (node) {
-                    Scene::SceneManager::Get().DestroyNode(node);
-                } else {
-                    m_registry->DestroyEntity(entity);
+                if (entity != ECS::NULL_ENTITY) {
+                    Scene::SceneNode* node = nullptr;
+                    if (Scene::SceneManager::Get().GetRegistry() == m_registry) {
+                        node = Scene::SceneManager::Get().GetNodeByEntity(entity);
+                    }
+                    if (node) {
+                        Scene::SceneManager::Get().DestroyNode(node);
+                    } else {
+                        m_registry->DestroyEntity(entity);
+                    }
                 }
                 m_clientReplicatedGUIDs.erase(guid);
                 m_pendingParents.erase(guid);

@@ -1,7 +1,13 @@
 #include "engine.hpp"
 #include "core/logger.hpp"
+#include "core/vfs.hpp"
+#include "core/crash_reporter.hpp"
+#include "core/benchmark_framework.hpp"
+#include "asset_pipeline/project_packager.hpp"
+#include "platform/deployment_platform.hpp"
 #include "window/window.hpp"
 #include "input/input.hpp"
+#include <filesystem>
 #include "renderer/vulkan/vulkan_renderer.hpp"
 #include "terrain/terrain_manager.hpp"
 #include "camera/camera_manager.hpp"
@@ -23,12 +29,104 @@
 
 namespace KumariEngine::Core {
 
+static std::chrono::high_resolution_clock::time_point s_initStartTime;
+
 Engine::Engine() = default;
 Engine::~Engine() {
     Shutdown();
 }
 
-bool Engine::Initialize(std::string_view windowTitle, int width, int height) {
+bool Engine::Initialize(std::string_view windowTitle, int width, int height, int argc, char** argv) {
+    s_initStartTime = std::chrono::high_resolution_clock::now();
+    
+    // 0. Initialize Crash Reporter and parse CLI arguments
+    CrashReporter::Initialize("crash_reports");
+
+    bool isPackaged = false;
+    std::string manifestPath = "version.manifest";
+    bool runBenchmark = false;
+    bool isPackageMode = false;
+    std::string packageSrc = "game/assets";
+    std::string packageDest = "dist";
+    std::string targetPlatformStr = "windows";
+    std::string buildDir = "build-release";
+    bool triggerCrash = false;
+
+    for (int i = 1; i < argc; ++i) {
+        std::string arg(argv[i]);
+        if (arg == "-packaged") {
+            isPackaged = true;
+        } else if (arg == "-manifest" && i + 1 < argc) {
+            manifestPath = argv[++i];
+        } else if (arg == "-benchmark") {
+            runBenchmark = true;
+        } else if (arg == "-package") {
+            isPackageMode = true;
+        } else if (arg == "-src" && i + 1 < argc) {
+            packageSrc = argv[++i];
+        } else if (arg == "-dest" && i + 1 < argc) {
+            packageDest = argv[++i];
+        } else if (arg == "-target" && i + 1 < argc) {
+            targetPlatformStr = argv[++i];
+        } else if (arg == "-builddir" && i + 1 < argc) {
+            buildDir = argv[++i];
+        } else if (arg == "-crash_test") {
+            triggerCrash = true;
+        }
+    }
+
+    // Initialize VFS
+    VFS::Get().Initialize(isPackaged, manifestPath);
+
+    if (isPackageMode) {
+        Logger::Info("Engine", "Running in CLI packaging mode...");
+        
+        // Root assets: scenes, scripts, maps, config
+        std::vector<std::string> rootAssets = {
+            "game/assets/scenes/main.prefab",
+            "game/assets/scripts/main.lua"
+        };
+        
+        // Call project packager to output packaged staging area
+        std::string stagingDir = (std::filesystem::path(packageDest) / "packaged_assets").string();
+        bool ok = Asset::ProjectPackager::PackProject(packageSrc, stagingDir, rootAssets);
+        if (!ok) {
+            Logger::Error("Engine", "Failed to package project assets.");
+            std::exit(1);
+        }
+
+        // Deploy to platform target
+        Platform::TargetPlatform target = Platform::TargetPlatform::Windows;
+        std::string lowerTarget = targetPlatformStr;
+        std::transform(lowerTarget.begin(), lowerTarget.end(), lowerTarget.begin(), [](unsigned char c) {
+            return static_cast<char>(std::tolower(c));
+        });
+        if (lowerTarget == "android") target = Platform::TargetPlatform::Android;
+        else if (lowerTarget == "linux") target = Platform::TargetPlatform::Linux;
+        else if (lowerTarget == "macos") target = Platform::TargetPlatform::macOS;
+        else if (lowerTarget == "ios") target = Platform::TargetPlatform::iOS;
+
+        auto deployer = Platform::DeploymentManager::CreateDeployer(target);
+        if (deployer) {
+            deployer->Deploy(buildDir, packageDest, "Release");
+        } else {
+            Logger::Error("Engine", "Unknown deployment target platform: %s", targetPlatformStr.c_str());
+            std::exit(1);
+        }
+
+        Logger::Info("Engine", "Packaging & Deployment completed successfully.");
+        std::exit(0);
+    }
+
+    if (triggerCrash) {
+        CrashReporter::TriggerMockCrash();
+        std::exit(0);
+    }
+
+    if (runBenchmark) {
+        BenchmarkFramework::Get().StartBenchmark();
+    }
+
     Logger::Info("Engine", "Initializing Kumari Engine...");
 
     // 1. Initialize Window System
@@ -52,6 +150,7 @@ bool Engine::Initialize(std::string_view windowTitle, int width, int height) {
 
     // Initialize ECS registry and Scene Graph Manager
     m_registry = std::make_unique<ECS::Registry>();
+    CrashReporter::RegisterRegistry(m_registry.get());
     if (!Scripting::ScriptEngine::Get().Initialize(m_registry.get())) {
         Logger::Error("Engine", "Failed to initialize Script Engine.");
         return false;
@@ -124,6 +223,15 @@ void Engine::ProcessEvents() {
 }
 
 void Engine::Update(float deltaTime) {
+    static bool firstFrame = true;
+    if (firstFrame) {
+        firstFrame = false;
+        double startupMs = std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - s_initStartTime).count();
+        BenchmarkFramework::Get().RecordStartupTime(startupMs);
+    }
+
+    BenchmarkFramework::Get().UpdateBenchmark(deltaTime);
+
     m_input->Update();
 
     // Escape exits the application
@@ -263,6 +371,7 @@ void Engine::Shutdown() {
     }
 
     Logger::Info("Engine", "Shutdown completed cleanly.");
+    CrashReporter::Shutdown();
 }
 
 } // namespace KumariEngine::Core

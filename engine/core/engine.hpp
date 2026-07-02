@@ -24,7 +24,7 @@ public:
     Engine(const Engine&) = delete;
     Engine& operator=(const Engine&) = delete;
 
-    bool Initialize(std::string_view windowTitle, int width, int height);
+    bool Initialize(std::string_view windowTitle, int width, int height, int argc = 0, char** argv = nullptr);
     void Run();
     void Shutdown();
 

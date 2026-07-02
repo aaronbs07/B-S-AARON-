@@ -1,5 +1,6 @@
 #include "ai_system.hpp"
 #include "core/logger.hpp"
+#include "core/vfs.hpp"
 #include "scene/transform_component.hpp"
 #include "physics/physics_components.hpp"
 #include "terrain/terrain_manager.hpp"
@@ -303,27 +304,35 @@ bool NavMesh::Save(const std::string& filepath) const {
 }
 
 bool NavMesh::Load(const std::string& filepath) {
-    std::ifstream in(filepath, std::ios::binary);
-    if (!in.is_open()) return false;
+    std::vector<uint8_t> buffer = Core::VFS::Get().Read(filepath);
+    if (buffer.empty()) return false;
     
     Clear();
     
-    in.read(reinterpret_cast<char*>(&m_center), sizeof(m_center));
-    in.read(reinterpret_cast<char*>(&m_width), sizeof(m_width));
-    in.read(reinterpret_cast<char*>(&m_depth), sizeof(m_depth));
-    in.read(reinterpret_cast<char*>(&m_spacing), sizeof(m_spacing));
+    size_t offset = 0;
+    auto readBytes = [&](void* dest, size_t size) {
+        if (offset + size > buffer.size()) return false;
+        std::memcpy(dest, &buffer[offset], size);
+        offset += size;
+        return true;
+    };
+    
+    if (!readBytes(&m_center, sizeof(m_center))) return false;
+    if (!readBytes(&m_width, sizeof(m_width))) return false;
+    if (!readBytes(&m_depth, sizeof(m_depth))) return false;
+    if (!readBytes(&m_spacing, sizeof(m_spacing))) return false;
     
     size_t nodeCount = 0;
-    in.read(reinterpret_cast<char*>(&nodeCount), sizeof(nodeCount));
+    if (!readBytes(&nodeCount, sizeof(nodeCount))) return false;
     m_nodes.resize(nodeCount);
     for (auto& node : m_nodes) {
-        in.read(reinterpret_cast<char*>(&node.position), sizeof(node.position));
-        in.read(reinterpret_cast<char*>(&node.walkable), sizeof(node.walkable));
+        if (!readBytes(&node.position, sizeof(node.position))) return false;
+        if (!readBytes(&node.walkable, sizeof(node.walkable))) return false;
         size_t neighborCount = 0;
-        in.read(reinterpret_cast<char*>(&neighborCount), sizeof(neighborCount));
+        if (!readBytes(&neighborCount, sizeof(neighborCount))) return false;
         node.neighbors.resize(neighborCount);
         if (neighborCount > 0) {
-            in.read(reinterpret_cast<char*>(node.neighbors.data()), neighborCount * sizeof(int));
+            if (!readBytes(node.neighbors.data(), neighborCount * sizeof(int))) return false;
         }
     }
     return true;

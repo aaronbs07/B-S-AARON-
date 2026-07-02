@@ -1,6 +1,10 @@
 add_library(KumariEngine STATIC
     core/logger.hpp
     core/logger.cpp
+    core/vfs.hpp
+    core/vfs.cpp
+    core/compression.hpp
+    core/encryption.hpp
     core/engine.hpp
     core/engine.cpp
     core/event_manager.hpp
@@ -50,6 +54,8 @@ add_library(KumariEngine STATIC
     asset_pipeline/asset_manager.cpp
     asset_pipeline/asset_database.hpp
     asset_pipeline/asset_database.cpp
+    asset_pipeline/project_packager.hpp
+    asset_pipeline/project_packager.cpp
     asset_pipeline/prefab_system.hpp
     asset_pipeline/prefab_system.cpp
     scene/scene_node.hpp
@@ -190,8 +196,14 @@ add_library(KumariEngine STATIC
     particle/particle_system.cpp
     core/profiler.hpp
     core/profiler.cpp
+    core/benchmark_framework.hpp
+    core/benchmark_framework.cpp
+    core/crash_reporter.hpp
+    core/crash_reporter.cpp
     platform/plugin_manager.hpp
     platform/plugin_manager.cpp
+    platform/deployment_platform.hpp
+    platform/deployment_platform.cpp
 )
 
 # Expose engine source root and stb root for clean includes
@@ -212,7 +224,7 @@ target_link_libraries(KumariEngine PUBLIC
 )
 
 if(WIN32)
-    target_link_libraries(KumariEngine PUBLIC ws2_32 winmm)
+    target_link_libraries(KumariEngine PUBLIC ws2_32 winmm dbghelp)
 endif()
 
 # Enable experimental GLM extensions

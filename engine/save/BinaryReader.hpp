@@ -38,6 +38,8 @@ public:
         }
     }
 
+    explicit BinaryReader(const std::vector<uint8_t>& buffer) : m_buffer(buffer), m_offset(0), m_hasError(false) {}
+
     // Prevent copy/assignment
     BinaryReader(const BinaryReader&) = delete;
     BinaryReader& operator=(const BinaryReader&) = delete;
