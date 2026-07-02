@@ -2,6 +2,7 @@
 #include "terrain/terrain_manager.hpp"
 #include "scene/scene_manager.hpp"
 #include "core/logger.hpp"
+#include "core/event_manager.hpp"
 #include <cmath>
 #include <variant>
 #include <algorithm>
@@ -38,6 +39,11 @@ PhysicsWorld::PhysicsWorld(float cellSize)
 }
 
 void PhysicsWorld::Step(ECS::Registry* registry, float dt) {
+    m_prevCollisions = std::move(m_currentCollisions);
+    m_currentCollisions.clear();
+    m_prevTriggers = std::move(m_currentTriggers);
+    m_currentTriggers.clear();
+
     // 1. Gather all active entities with PhysicsComponent
     auto entities = registry->View<PhysicsComponent>();
     uint32_t activeEntitiesCount = static_cast<uint32_t>(entities.size());
@@ -212,10 +218,20 @@ void PhysicsWorld::Step(ECS::Registry* registry, float dt) {
             }
 
             if (hasCollision) {
+                CollisionPair pair{std::min(entityA, entityB), std::max(entityA, entityB)};
                 if (pcA.collider.isTrigger || pcB.collider.isTrigger) {
+                    ECS::Entity trigger = entityA;
+                    ECS::Entity other = entityB;
+                    if (pcB.collider.isTrigger && !pcA.collider.isTrigger) {
+                        trigger = entityB;
+                        other = entityA;
+                    }
+                    m_currentTriggers[pair] = TriggerOverlapInfo{trigger, other};
+
                     // Overlap trigger event log
                     Core::Logger::Info("PhysicsWorld", "Trigger overlapping detected between Entities %d and %d", entityA, entityB);
                 } else {
+                    m_currentCollisions[pair] = CollisionContactInfo{contact.normal, contact.penetration};
                     ResolveCollision(pcA, pcB, posA, posB, contact, dt);
                 }
             }
@@ -251,6 +267,33 @@ void PhysicsWorld::Step(ECS::Registry* registry, float dt) {
     };
     if (rootNode) {
         Applier::ApplyPositions(rootNode, entityPositions, registry, dt);
+    }
+
+    // Compare collision states and queue events
+    // A. Collisions
+    for (const auto& [pair, info] : m_currentCollisions) {
+        if (m_prevCollisions.contains(pair)) {
+            Core::EventManager::Get().QueueEvent(std::make_unique<Core::CollisionEvent>("OnCollisionStay", pair.entityA, pair.entityB, info.normal, info.penetration));
+        } else {
+            Core::EventManager::Get().QueueEvent(std::make_unique<Core::CollisionEvent>("OnCollisionEnter", pair.entityA, pair.entityB, info.normal, info.penetration));
+        }
+    }
+    for (const auto& [pair, info] : m_prevCollisions) {
+        if (!m_currentCollisions.contains(pair)) {
+            Core::EventManager::Get().QueueEvent(std::make_unique<Core::CollisionExitEvent>(pair.entityA, pair.entityB));
+        }
+    }
+
+    // B. Triggers
+    for (const auto& [pair, info] : m_currentTriggers) {
+        if (!m_prevTriggers.contains(pair)) {
+            Core::EventManager::Get().QueueEvent(std::make_unique<Core::TriggerEvent>("OnTriggerEnter", info.triggerEntity, info.otherEntity));
+        }
+    }
+    for (const auto& [pair, info] : m_prevTriggers) {
+        if (!m_currentTriggers.contains(pair)) {
+            Core::EventManager::Get().QueueEvent(std::make_unique<Core::TriggerEvent>("OnTriggerExit", info.triggerEntity, info.otherEntity));
+        }
     }
 }
 

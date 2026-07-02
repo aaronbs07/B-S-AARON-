@@ -17,6 +17,7 @@ public:
     bool IsKeyDown(int key) const;
 
     bool IsMouseButtonPressed(int button) const;
+    bool IsMouseButtonReleased(int button) const;
     bool IsMouseButtonDown(int button) const;
 
     void GetMousePosition(double& x, double& y) const { x = m_mouseX; y = m_mouseY; }

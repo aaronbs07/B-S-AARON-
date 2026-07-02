@@ -46,10 +46,11 @@ public:
     void MarkWorldDirty();
 
     // ECS linkage
-    void SetEntity(ECS::Entity entity) { m_entity = entity; }
+    void SetEntity(ECS::Entity entity);
     ECS::Entity GetEntity() const { return m_entity; }
 
     const std::string& GetName() const { return m_name; }
+    void SetName(std::string_view name) { m_name = name; }
 
 private:
     std::string m_name;

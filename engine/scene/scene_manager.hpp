@@ -66,6 +66,7 @@ public:
 
     void Initialize(ECS::Registry* registry);
     void Shutdown();
+    void Reset();
 
     void Update(float deltaTime);
 
@@ -77,6 +78,13 @@ public:
 
     SceneNode* GetRootNode() const { return m_rootNode.get(); }
     ECS::Registry* GetRegistry() const { return m_registry; }
+    
+    void SetRegistry(ECS::Registry* registry) { m_registry = registry; }
+    void SetRootNode(std::unique_ptr<SceneNode> root) { m_rootNode = std::move(root); }
+    std::unique_ptr<SceneNode> TakeRootNode() { return std::move(m_rootNode); }
+    
+    const std::unordered_map<ECS::Entity, SceneNode*>& GetEntityNodeMap() const { return m_entityNodeMap; }
+    void SetEntityNodeMap(const std::unordered_map<ECS::Entity, SceneNode*>& map) { m_entityNodeMap = map; }
 
     void SetChunkSize(float size) { m_chunkSize = size; }
     float GetChunkSize() const { return m_chunkSize; }
@@ -91,6 +99,10 @@ public:
     bool IsChunkLoading(int32_t x, int32_t z) const;
     size_t GetLoadedChunkCount() const { return m_loadedChunks.size(); }
     size_t GetLoadingChunkCount() const { return m_loadingChunks.size(); }
+
+    void RegisterEntityNode(ECS::Entity entity, SceneNode* node);
+    void UnregisterEntityNode(ECS::Entity entity);
+    SceneNode* GetNodeByEntity(ECS::Entity entity) const;
 
 private:
     SceneManager() = default;
@@ -109,6 +121,7 @@ private:
 
     std::unordered_map<ChunkCoord, Chunk, ChunkCoordHash> m_loadedChunks;
     std::unordered_map<ChunkCoord, std::future<std::shared_ptr<ChunkAsset>>, ChunkCoordHash> m_loadingChunks;
+    std::unordered_map<ECS::Entity, SceneNode*> m_entityNodeMap;
 };
 
 } // namespace KumariEngine::Scene

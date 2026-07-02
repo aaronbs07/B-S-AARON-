@@ -110,11 +110,22 @@ void Camera::SetEyeProjections(const glm::mat4& leftProj, const glm::mat4& right
 }
 
 glm::mat4 Camera::GetViewMatrix() const {
-    if (m_viewDirty) {
+    if (m_viewDirty || m_shakeTimer > 0.0f) {
+        glm::vec3 shakeOffset(0.0f);
+        if (m_shakeTimer > 0.0f && m_shakeDuration > 0.0f) {
+            float currentIntensity = m_shakeIntensity * (m_shakeTimer / m_shakeDuration);
+            float timeVal = static_cast<float>(glfwGetTime()) * m_shakeSpeed;
+            shakeOffset.x = std::sin(timeVal) * currentIntensity;
+            shakeOffset.y = std::cos(timeVal * 1.2f) * currentIntensity;
+            shakeOffset.z = std::sin(timeVal * 0.8f) * currentIntensity;
+        }
+        glm::vec3 pos = m_currentPosition + shakeOffset;
         glm::vec3 forward = m_currentRotation * glm::vec3(0.0f, 0.0f, -1.0f);
         glm::vec3 up = m_currentRotation * glm::vec3(0.0f, 1.0f, 0.0f);
-        m_cachedViewMatrix = glm::lookAt(m_currentPosition, m_currentPosition + forward, up);
-        m_viewDirty = false;
+        m_cachedViewMatrix = glm::lookAt(pos, pos + forward, up);
+        if (m_shakeTimer <= 0.0f) {
+            m_viewDirty = false;
+        }
     }
     return m_cachedViewMatrix;
 }
@@ -171,6 +182,14 @@ void Camera::StopCinematic() {
     m_cinematicPlaying = false;
 }
 
+void Camera::StartShake(float intensity, float duration, float speed) {
+    m_shakeIntensity = intensity;
+    m_shakeDuration = duration;
+    m_shakeTimer = duration;
+    m_shakeSpeed = speed;
+    m_viewDirty = true;
+}
+
 void Camera::RecalculateAnglesFromRotation() {
     // Extract yaw and pitch from normalized rotation quaternion
     glm::vec3 forward = m_rotation * glm::vec3(0.0f, 0.0f, -1.0f);
@@ -185,6 +204,16 @@ void Camera::RecalculateAnglesFromRotation() {
 
 void Camera::Update(float deltaTime, const Input::Input* input) {
     if (deltaTime <= 0.0f) return;
+
+    // Decay camera shake
+    if (m_shakeTimer > 0.0f) {
+        m_shakeTimer -= deltaTime;
+        if (m_shakeTimer < 0.0f) {
+            m_shakeTimer = 0.0f;
+            m_shakeIntensity = 0.0f;
+        }
+        m_viewDirty = true;
+    }
 
     // Update active camera modes
     switch (m_mode) {

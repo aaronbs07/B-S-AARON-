@@ -6,6 +6,10 @@
 #include "terrain/terrain_manager.hpp"
 #include "camera/camera_manager.hpp"
 #include "camera/camera.hpp"
+#include "camera/camera_system.hpp"
+#include "audio/audio_system.hpp"
+#include "timeline/timeline.hpp"
+#include "timeline/cinematic_system.hpp"
 #include "core/debug_overlay.hpp"
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -13,6 +17,9 @@
 #include "scene/scene_manager.hpp"
 #include "physics/physics_system.hpp"
 #include "physics/debug_renderer.hpp"
+#include "scripting/script_engine.hpp"
+#include "networking/NetworkManager.hpp"
+#include "gameplay/GameInstance.hpp"
 
 namespace KumariEngine::Core {
 
@@ -45,10 +52,20 @@ bool Engine::Initialize(std::string_view windowTitle, int width, int height) {
 
     // Initialize ECS registry and Scene Graph Manager
     m_registry = std::make_unique<ECS::Registry>();
+    if (!Scripting::ScriptEngine::Get().Initialize(m_registry.get())) {
+        Logger::Error("Engine", "Failed to initialize Script Engine.");
+        return false;
+    }
     Scene::SceneManager::Get().Initialize(m_registry.get());
     Scene::SceneManager::Get().SetChunkSize(64.0f);
     Scene::SceneManager::Get().SetLoadRadius(2);
     Scene::SceneManager::Get().SetUnloadRadius(3);
+
+    // Initialize Network Foundation
+    if (!Networking::NetworkManager::Get().Initialize()) {
+        Logger::Error("Engine", "Failed to initialize Network system.");
+        return false;
+    }
 
     // Initialize Physics simulation wrapper
     m_physicsSystem = std::make_unique<Physics::PhysicsSystem>();
@@ -71,6 +88,12 @@ bool Engine::Initialize(std::string_view windowTitle, int width, int height) {
 
     // Instantiate debug overlay
     m_debugOverlay = std::make_unique<DebugOverlay>();
+
+    // Initialize GameInstance and Gameplay Foundation
+    if (!GameFramework::GameInstance::Get().Initialize(m_registry.get())) {
+        Logger::Error("Engine", "Failed to initialize GameInstance.");
+        return false;
+    }
 
     m_running = true;
     m_lastFrameTime = static_cast<float>(glfwGetTime());
@@ -109,8 +132,21 @@ void Engine::Update(float deltaTime) {
         m_running = false;
     }
 
+    // Run scripting engine updates
+    Scripting::ScriptEngine::Get().Update(deltaTime);
+
+    // Camera System update (runs before manager to apply tracking/shake parameters)
+    Camera::CameraSystem::Get().Update(m_registry.get(), deltaTime, m_input.get());
+
+    // Cinematic / Timeline System update
+    Timeline::CinematicSystem::Get().Update(m_registry.get(), deltaTime);
+
+    // Audio System update
+    Audio::AudioSystem::Get().Update(m_registry.get(), deltaTime);
+
     auto activeCam = Camera::CameraManager::Get().GetActiveCamera();
     if (activeCam) {
+        // If the active camera is not controlled by the ECS system, update it manually
         activeCam->Update(deltaTime, m_input.get());
     }
     Camera::CameraManager::Get().Update(deltaTime);
@@ -161,11 +197,21 @@ void Engine::Update(float deltaTime) {
     if (m_debugOverlay) {
         m_debugOverlay->Update(deltaTime, m_window.get());
     }
+
+    // Update Gameplay Foundation
+    GameFramework::GameInstance::Get().Update(deltaTime);
+
+    if (m_updateCallback) {
+        m_updateCallback(deltaTime);
+    }
 }
 
 void Engine::Render() {
     m_renderer->BeginFrame();
     m_renderer->DrawFrame();
+    if (m_renderCallback) {
+        m_renderCallback();
+    }
     m_renderer->EndFrame();
 }
 
@@ -176,7 +222,14 @@ void Engine::Shutdown() {
 
     m_running = false;
 
+    Networking::NetworkManager::Get().Shutdown();
+
     Scene::SceneManager::Get().Shutdown();
+
+    Scripting::ScriptEngine::Get().Shutdown();
+
+    // Shutdown Gameplay Foundation
+    GameFramework::GameInstance::Get().Shutdown();
 
     if (m_physicsSystem) {
         m_physicsSystem.reset();

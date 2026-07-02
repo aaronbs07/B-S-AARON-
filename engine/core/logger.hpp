@@ -13,6 +13,10 @@ enum class LogLevel {
 
 class Logger {
 public:
+    using LogCallback = void(*)(LogLevel level, std::string_view category, std::string_view message);
+    static void RegisterLogCallback(LogCallback callback);
+    static void UnregisterLogCallback();
+
     static void Log(LogLevel level, std::string_view category, std::string_view message);
 
     template<typename... Args>

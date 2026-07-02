@@ -133,6 +133,19 @@ public:
     void SetFocalDistance(float dist) { m_focalDistance = dist; }
     float GetFocalDistance() const { return m_focalDistance; }
 
+    // Camera Shake controls
+    void StartShake(float intensity, float duration, float speed = 25.0f);
+    float GetShakeIntensity() const { return m_shakeIntensity; }
+    float GetShakeDuration() const { return m_shakeDuration; }
+    float GetShakeTimer() const { return m_shakeTimer; }
+    float GetShakeSpeed() const { return m_shakeSpeed; }
+    void SetShakeParams(float intensity, float duration, float timer, float speed) {
+        m_shakeIntensity = intensity;
+        m_shakeDuration = duration;
+        m_shakeTimer = timer;
+        m_shakeSpeed = speed;
+    }
+
     // Direction vectors
     glm::vec3 GetForward() const;
     glm::vec3 GetUp() const;
@@ -264,6 +277,12 @@ private:
     float m_cameraRadius = 0.2f;
     std::vector<CameraCollider> m_colliders;
     CollisionCallback m_collisionCallback;
+
+    // Camera shake parameters
+    float m_shakeIntensity = 0.0f;
+    float m_shakeDuration = 0.0f;
+    float m_shakeTimer = 0.0f;
+    float m_shakeSpeed = 25.0f;
 
     // Matrix caching
     mutable glm::mat4 m_cachedViewMatrix{1.0f};

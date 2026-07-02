@@ -1,4 +1,5 @@
 #include "scene_node.hpp"
+#include "scene_manager.hpp"
 #include <algorithm>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -7,7 +8,21 @@ namespace KumariEngine::Scene {
 SceneNode::SceneNode(std::string_view name)
     : m_name(name) {}
 
-SceneNode::~SceneNode() = default;
+SceneNode::~SceneNode() {
+    if (m_entity != ECS::NULL_ENTITY) {
+        SceneManager::Get().UnregisterEntityNode(m_entity);
+    }
+}
+
+void SceneNode::SetEntity(ECS::Entity entity) {
+    if (m_entity != ECS::NULL_ENTITY) {
+        SceneManager::Get().UnregisterEntityNode(m_entity);
+    }
+    m_entity = entity;
+    if (m_entity != ECS::NULL_ENTITY) {
+        SceneManager::Get().RegisterEntityNode(m_entity, this);
+    }
+}
 
 void SceneNode::SetLocalPosition(const glm::vec3& position) {
     m_localPosition = position;

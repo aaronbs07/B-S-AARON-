@@ -3,6 +3,8 @@ add_library(KumariEngine STATIC
     core/logger.cpp
     core/engine.hpp
     core/engine.cpp
+    core/event_manager.hpp
+    core/event_manager.cpp
     core/debug_overlay.hpp
     core/debug_overlay.cpp
     window/window.hpp
@@ -11,6 +13,29 @@ add_library(KumariEngine STATIC
     input/input.cpp
     renderer/renderer.hpp
     renderer/renderer.cpp
+    renderer/render_pass.hpp
+    renderer/render_pass.cpp
+    renderer/render_graph.hpp
+    renderer/render_graph.cpp
+    renderer/material.hpp
+    renderer/material.cpp
+    renderer/optimization_manager.hpp
+    renderer/optimization_manager.cpp
+    renderer/hdr_pipeline.hpp
+    renderer/hdr_pipeline.cpp
+    renderer/post_process_pipeline.hpp
+    renderer/post_process_pipeline.cpp
+    renderer/ibl_manager.hpp
+    renderer/ibl_manager.cpp
+    renderer/ssr_manager.hpp
+    renderer/ssr_manager.cpp
+    renderer/volumetric_lighting_manager.hpp
+    renderer/volumetric_lighting_manager.cpp
+    renderer/rendering_profiler.hpp
+    renderer/rendering_profiler.cpp
+    renderer/light_manager.hpp
+    renderer/light_manager.cpp
+    renderer/pbr_shader_bytecode.hpp
     renderer/vulkan/vulkan_context.hpp
     renderer/vulkan/vulkan_context.cpp
     renderer/vulkan/vulkan_renderer.hpp
@@ -18,18 +43,34 @@ add_library(KumariEngine STATIC
     ecs/ecs.hpp
     ecs/ecs.cpp
     resource/resource.hpp
+    resource/resource_types.hpp
     resource/resource_manager.hpp
     resource/resource_manager.cpp
     asset_pipeline/asset_manager.hpp
     asset_pipeline/asset_manager.cpp
+    asset_pipeline/asset_database.hpp
+    asset_pipeline/asset_database.cpp
+    asset_pipeline/prefab_system.hpp
+    asset_pipeline/prefab_system.cpp
     scene/scene_node.hpp
     scene/scene_node.cpp
     scene/scene_manager.hpp
     scene/scene_manager.cpp
     camera/camera.hpp
     camera/camera.cpp
+    camera/camera_component.hpp
     camera/camera_manager.hpp
     camera/camera_manager.cpp
+    camera/camera_system.hpp
+    camera/camera_system.cpp
+    timeline/timeline.hpp
+    timeline/timeline.cpp
+    timeline/cinematic_system.hpp
+    timeline/cinematic_system.cpp
+    lighting/light_component.hpp
+    shadow/shadow_system.hpp
+    shadow/shadow_system.cpp
+    renderer/mesh_renderer_component.hpp
     terrain/noise_generator.hpp
     terrain/noise_generator.cpp
     terrain/terrain_chunk.hpp
@@ -41,6 +82,10 @@ add_library(KumariEngine STATIC
     terrain/terrain_shader_bytecode.hpp
     terrain/vegetation_system.hpp
     terrain/vegetation_system.cpp
+    weather/environment_manager.hpp
+    weather/environment_manager.cpp
+    weather/atmospheric_renderer.hpp
+    weather/atmospheric_renderer.cpp
     physics/physics_types.hpp
     physics/physics_components.hpp
     physics/spatial_hash_grid.hpp
@@ -56,12 +101,104 @@ add_library(KumariEngine STATIC
     physics/debug_renderer.cpp
     physics/physics_system.hpp
     physics/physics_system.cpp
+    save/SaveVersion.hpp
+    save/BinaryWriter.hpp
+    save/BinaryReader.hpp
+    save/Endian.hpp
+    save/EntityGUID.hpp
+    save/SaveErrors.hpp
+    save/Checksum.hpp
+    save/ComponentSerializer.hpp
+    save/SaveManager.hpp
+    save/SaveManager.cpp
+    save/SaveSystem.hpp
+    save/SaveSystem.cpp
+    world/WorldSnapshot.hpp
+    world/WorldSnapshot.cpp
+    scripting/script_component.hpp
+    scripting/script_engine.hpp
+    scripting/script_engine.cpp
+    scripting/file_watcher.hpp
+    scripting/file_watcher.cpp
+    scripting/hot_reload_manager.hpp
+    scripting/hot_reload_manager.cpp
+    gameplay/GameplayComponents.hpp
+    gameplay/InventorySystem.hpp
+    gameplay/InventorySystem.cpp
+    gameplay/EquipmentSystem.hpp
+    gameplay/EquipmentSystem.cpp
+    gameplay/CraftingSystem.hpp
+    gameplay/CraftingSystem.cpp
+    gameplay/QuestSystem.hpp
+    gameplay/QuestSystem.cpp
+    gameplay/DialogueSystem.hpp
+    gameplay/DialogueSystem.cpp
+    gameplay/InteractionSystem.hpp
+    gameplay/InteractionSystem.cpp
+    gameplay/GameplayTags.hpp
+    gameplay/GameplayTags.cpp
+    gameplay/Level.hpp
+    gameplay/Level.cpp
+    gameplay/World.hpp
+    gameplay/World.cpp
+    gameplay/GameInstance.hpp
+    gameplay/GameInstance.cpp
+    gameplay/GameMode.hpp
+    gameplay/GameMode.cpp
+    gameplay/GameState.hpp
+    gameplay/GameState.cpp
+    gameplay/PlayerController.hpp
+    gameplay/PlayerController.cpp
+    gameplay/PlayerState.hpp
+    gameplay/PlayerState.cpp
+    gameplay/SpawnManager.hpp
+    gameplay/SpawnManager.cpp
+    gameplay/LevelManager.hpp
+    gameplay/LevelManager.cpp
+    networking/ThreadSafeQueue.hpp
+    networking/Packet.hpp
+    networking/Packet.cpp
+    networking/NetworkManager.hpp
+    networking/NetworkManager.cpp
+    scene/transform_component.hpp
+    networking/ReplicationManager.hpp
+    networking/ReplicationManager.cpp
+    networking/RPCManager.hpp
+    networking/RPCManager.cpp
+    networking/NetworkOwnershipComponent.hpp
+    networking/InputSync.hpp
+    networking/TimeSync.hpp
+    networking/TimeSync.cpp
+    networking/ClientPrediction.hpp
+    networking/ClientPrediction.cpp
+    networking/LagCompensation.hpp
+    networking/LagCompensation.cpp
+    animation/animation_system.hpp
+    animation/animation_system.cpp
+    ai/ai_system.hpp
+    ai/ai_system.cpp
+    ai/ai_components.hpp
+    ai/behavior_tree.hpp
+    ai/behavior_tree.cpp
+    ai/ai_controller.hpp
+    ai/ai_controller.cpp
+    scripting/visual_scripting.hpp
+    scripting/visual_scripting.cpp
+    audio/audio_system.hpp
+    audio/audio_system.cpp
+    particle/particle_system.hpp
+    particle/particle_system.cpp
+    core/profiler.hpp
+    core/profiler.cpp
+    platform/plugin_manager.hpp
+    platform/plugin_manager.cpp
 )
 
 # Expose engine source root and stb root for clean includes
 target_include_directories(KumariEngine PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${stb_SOURCE_DIR}
+    ${enet_SOURCE_DIR}/include
 )
 
 # Link third-party fetched libraries
@@ -70,7 +207,13 @@ target_link_libraries(KumariEngine PUBLIC
     glm
     volk
     Vulkan-Headers
+    lua_static
+    enet
 )
+
+if(WIN32)
+    target_link_libraries(KumariEngine PUBLIC ws2_32 winmm)
+endif()
 
 # Enable experimental GLM extensions
 target_compile_definitions(KumariEngine PUBLIC GLM_ENABLE_EXPERIMENTAL)

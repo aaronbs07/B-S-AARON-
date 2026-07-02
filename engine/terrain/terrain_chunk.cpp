@@ -42,7 +42,7 @@ void TerrainChunk::GenerateCPUData(int lod) {
     // Calculate primary biome at chunk center
     float centerX = startX + m_chunkSize * 0.5f;
     float centerZ = startZ + m_chunkSize * 0.5f;
-    float centerH = m_noiseGen->GetHeight(centerX, centerZ);
+    float centerH = TerrainManager::Get().GetHeightAt(centerX, centerZ);
     m_primaryBiomeID = m_noiseGen->GetBiome(centerX, centerZ, centerH);
 
     // 1. Generate vertices
@@ -54,7 +54,7 @@ void TerrainChunk::GenerateCPUData(int lod) {
             float xPct = static_cast<float>(gx) / static_cast<float>(gridMax);
             float worldX = startX + xPct * m_chunkSize;
 
-            float height = m_noiseGen->GetHeight(worldX, worldZ);
+            float height = TerrainManager::Get().GetHeightAt(worldX, worldZ);
             m_heightmap.push_back(height);
 
             // Bounding box updates
@@ -63,10 +63,10 @@ void TerrainChunk::GenerateCPUData(int lod) {
 
             // Estimate normal using central difference
             float eps = 0.5f;
-            float hL = m_noiseGen->GetHeight(worldX - eps, worldZ);
-            float hR = m_noiseGen->GetHeight(worldX + eps, worldZ);
-            float hD = m_noiseGen->GetHeight(worldX, worldZ - eps);
-            float hU = m_noiseGen->GetHeight(worldX, worldZ + eps);
+            float hL = TerrainManager::Get().GetHeightAt(worldX - eps, worldZ);
+            float hR = TerrainManager::Get().GetHeightAt(worldX + eps, worldZ);
+            float hD = TerrainManager::Get().GetHeightAt(worldX, worldZ - eps);
+            float hU = TerrainManager::Get().GetHeightAt(worldX, worldZ + eps);
             glm::vec3 normal = glm::normalize(glm::vec3(hL - hR, 2.0f * eps, hD - hU));
             m_normalMap.push_back(normal);
 
@@ -74,12 +74,7 @@ void TerrainChunk::GenerateCPUData(int lod) {
             glm::vec2 uv(xPct, zPct);
 
             // Biome weights
-            int biomeType = m_noiseGen->GetBiome(worldX, worldZ, height);
-            glm::vec4 biomeWeights(0.0f);
-            if (biomeType == 2) biomeWeights.x = 1.0f; // Plains
-            else if (biomeType == 3) biomeWeights.y = 1.0f; // Hills
-            else if (biomeType == 4) biomeWeights.z = 1.0f; // Mountains
-            else if (biomeType == 1) biomeWeights.w = 1.0f; // Beach
+            glm::vec4 biomeWeights = TerrainManager::Get().GetLayerWeightsAt(worldX, worldZ);
 
             TerrainVertex vertex;
             vertex.pos = glm::vec3(worldX, height, worldZ);
@@ -123,7 +118,7 @@ void TerrainChunk::GenerateCPUData(int lod) {
         for (int cx = 0; cx <= gridMax; cx += colStep) {
             float xPct = static_cast<float>(cx) / static_cast<float>(gridMax);
             float worldX = startX + xPct * m_chunkSize;
-            float height = m_noiseGen->GetHeight(worldX, worldZ);
+            float height = TerrainManager::Get().GetHeightAt(worldX, worldZ);
             m_collisionMesh.vertices.push_back(glm::vec3(worldX, height, worldZ));
         }
     }
@@ -674,6 +669,41 @@ void TerrainChunk::CopyBuffer(VkDevice device, VkCommandPool commandPool, VkQueu
     vkQueueWaitIdle(graphicsQueue);
 
     vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+}
+
+bool TerrainChunk::Regenerate(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue) {
+    GenerateCPUData(m_lod);
+
+    if (m_uploaded && device != VK_NULL_HANDLE) {
+        DestroyGPUResources(device);
+        
+        StagingResources uploadResources;
+        bool ok = UploadToGPU(device, physicalDevice, commandPool, graphicsQueue, uploadResources);
+        if (ok) {
+            if (uploadResources.fence != VK_NULL_HANDLE) {
+                vkWaitForFences(device, 1, &uploadResources.fence, VK_TRUE, UINT64_MAX);
+                vkDestroyFence(device, uploadResources.fence, nullptr);
+                uploadResources.fence = VK_NULL_HANDLE;
+            }
+            if (uploadResources.stagingVertexBuffer != VK_NULL_HANDLE) {
+                vkDestroyBuffer(device, uploadResources.stagingVertexBuffer, nullptr);
+            }
+            if (uploadResources.stagingVertexBufferMemory != VK_NULL_HANDLE) {
+                vkFreeMemory(device, uploadResources.stagingVertexBufferMemory, nullptr);
+            }
+            if (uploadResources.stagingIndexBuffer != VK_NULL_HANDLE) {
+                vkDestroyBuffer(device, uploadResources.stagingIndexBuffer, nullptr);
+            }
+            if (uploadResources.stagingIndexBufferMemory != VK_NULL_HANDLE) {
+                vkFreeMemory(device, uploadResources.stagingIndexBufferMemory, nullptr);
+            }
+            if (uploadResources.commandBuffer != VK_NULL_HANDLE && uploadResources.commandPool != VK_NULL_HANDLE) {
+                vkFreeCommandBuffers(device, uploadResources.commandPool, 1, &uploadResources.commandBuffer);
+            }
+        }
+        return ok;
+    }
+    return true;
 }
 
 } // namespace KumariEngine::Terrain

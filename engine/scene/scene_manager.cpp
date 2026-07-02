@@ -39,6 +39,15 @@ void SceneManager::Shutdown() {
     Core::Logger::Info("SceneManager", "Scene Manager shut down cleanly.");
 }
 
+void SceneManager::Reset() {
+    if (m_rootNode) {
+        while (!m_rootNode->GetChildren().empty()) {
+            DestroyNode(m_rootNode->GetChildren().back().get());
+        }
+    }
+    m_entityNodeMap.clear();
+}
+
 void SceneManager::Update(float deltaTime) {
     (void)deltaTime;
     if (!m_rootNode) return;
@@ -199,6 +208,27 @@ void SceneManager::UpdateStreaming() {
             }
         }
     }
+}
+
+void SceneManager::RegisterEntityNode(ECS::Entity entity, SceneNode* node) {
+    if (entity != ECS::NULL_ENTITY && node) {
+        m_entityNodeMap[entity] = node;
+    }
+}
+
+void SceneManager::UnregisterEntityNode(ECS::Entity entity) {
+    if (entity != ECS::NULL_ENTITY) {
+        m_entityNodeMap.erase(entity);
+    }
+}
+
+SceneNode* SceneManager::GetNodeByEntity(ECS::Entity entity) const {
+    if (entity == ECS::NULL_ENTITY) return nullptr;
+    auto it = m_entityNodeMap.find(entity);
+    if (it != m_entityNodeMap.end()) {
+        return it->second;
+    }
+    return nullptr;
 }
 
 } // namespace KumariEngine::Scene

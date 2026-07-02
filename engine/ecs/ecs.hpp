@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cassert>
 #include "core/logger.hpp"
+#include "save/EntityGUID.hpp"
 
 namespace KumariEngine::ECS {
 
@@ -115,7 +116,14 @@ public:
     ~Registry();
 
     Entity CreateEntity();
+    Entity CreateEntityWithID(Entity entity);
     void DestroyEntity(Entity entity);
+
+    // Entity GUID Mapping support
+    Save::EntityGUID GetGUID(Entity entity) const;
+    Entity GetEntityByGUID(const Save::EntityGUID& guid) const;
+    void AssignGUID(Entity entity, const Save::EntityGUID& guid);
+    Save::EntityGUID CreateGUID(Entity entity);
 
     template<typename T>
     void RegisterComponent() {
@@ -176,6 +184,8 @@ public:
     void Reserve(size_t capacity) {
         GetPool<T>()->Reserve(capacity);
     }
+
+    std::vector<Entity> GetAliveEntities() const;
 
     /// <summary>
     /// Returns a list of entities possessing all specified components.
@@ -275,6 +285,8 @@ private:
     std::vector<Entity> m_freeEntities;
     std::vector<bool> m_activeEntities;
     std::unordered_map<std::type_index, std::unique_ptr<IComponentPool>> m_componentPools;
+    std::unordered_map<Entity, Save::EntityGUID> m_entityToGUID;
+    std::unordered_map<Save::EntityGUID, Entity> m_guidToEntity;
 };
 
 } // namespace KumariEngine::ECS

@@ -1,5 +1,7 @@
 #pragma once
 #include <unordered_map>
+#include <unordered_set>
+#include <string>
 #include <memory>
 #include <future>
 #include <volk.h>
@@ -102,6 +104,52 @@ public:
     bool SaveTerrainEdits(const std::string& filepath) const;
     bool LoadTerrainEdits(const std::string& filepath);
 
+    glm::vec4 GetLayerWeightsAt(float x, float z) const;
+
+    // Brush Tool Types
+    enum class BrushType {
+        RaiseLower,
+        Smooth,
+        Flatten,
+        Noise,
+        Erosion
+    };
+
+    // Brush paint commands
+    void ApplyBrush(float worldX, float worldZ, BrushType type, float radius, float strength, float deltaTime, float targetHeight = 0.0f);
+    void ApplyTexturePaint(float worldX, float worldZ, int targetLayer, float radius, float strength, float deltaTime);
+    void ApplyVegetationPaint(float worldX, float worldZ, int vegType, float radius, float density, float minScale, float maxScale, bool eraseMode);
+
+    // Spline-based Road/River creations
+    void CreateRoad(const std::vector<glm::vec3>& splinePoints, float width, int roadType);
+    void CreateRiver(const std::vector<glm::vec3>& splinePoints, float width, float depth);
+    void ClearSplines();
+    void ApplySplines();
+
+    // Streaming boundary rendering
+    void RenderDebugVisualizations(VkCommandBuffer cmdBuf, const glm::mat4& viewProj);
+
+    // Accessors for serialization and undo/redo
+    const std::unordered_map<uint64_t, float>& GetHeightEdits() const { return m_heightEdits; }
+    void SetHeightEdits(const std::unordered_map<uint64_t, float>& edits) { m_heightEdits = edits; }
+
+    const std::unordered_map<uint64_t, glm::vec4>& GetLayerEdits() const { return m_layerEdits; }
+    void SetLayerEdits(const std::unordered_map<uint64_t, glm::vec4>& edits) { m_layerEdits = edits; }
+
+    const std::unordered_set<ChunkCoord, ChunkCoordHash>& GetEditedVegetationChunks() const { return m_editedVegetationChunks; }
+    void SetEditedVegetationChunks(const std::unordered_set<ChunkCoord, ChunkCoordHash>& chunks) { m_editedVegetationChunks = chunks; }
+
+    const std::unordered_map<ChunkCoord, std::vector<VegetationInstance>, ChunkCoordHash>& GetPaintedVegetation() const { return m_paintedVegetation; }
+    void SetPaintedVegetation(const std::unordered_map<ChunkCoord, std::vector<VegetationInstance>, ChunkCoordHash>& veg) { m_paintedVegetation = veg; }
+
+    const std::vector<RoadData>& GetRoads() const { return m_roads; }
+    void SetRoads(const std::vector<RoadData>& roads) { m_roads = roads; }
+
+    const std::vector<RiverData>& GetRivers() const { return m_rivers; }
+    void SetRivers(const std::vector<RiverData>& rivers) { m_rivers = rivers; }
+    void PopulateChunkVegetation(TerrainChunk* chunk) const { m_vegetationSystem.PopulateVegetation(chunk); }
+    void RegenerateActiveChunks();
+
 private:
     TerrainManager() = default;
     ~TerrainManager() = default;
@@ -151,6 +199,13 @@ private:
     std::vector<SettlementPlot> m_settlements;
     std::vector<CaveNode> m_caves;
     std::unordered_map<uint64_t, float> m_heightEdits;
+    std::unordered_map<uint64_t, glm::vec4> m_layerEdits;
+    std::unordered_set<ChunkCoord, ChunkCoordHash> m_editedVegetationChunks;
+    std::unordered_map<ChunkCoord, std::vector<VegetationInstance>, ChunkCoordHash> m_paintedVegetation;
+    VkDevice m_device = VK_NULL_HANDLE;
+    VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
+    VkCommandPool m_commandPool = VK_NULL_HANDLE;
+    VkQueue m_graphicsQueue = VK_NULL_HANDLE;
 };
 
 } // namespace KumariEngine::Terrain

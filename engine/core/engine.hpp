@@ -1,6 +1,7 @@
 #pragma once
 #include <memory>
 #include <string_view>
+#include <functional>
 
 namespace KumariEngine {
 namespace Window { class Window; }
@@ -29,6 +30,11 @@ public:
 
     bool IsRunning() const { return m_running; }
 
+    using FrameCallback = std::function<void(float)>;
+    void SetUpdateCallback(FrameCallback callback) { m_updateCallback = callback; }
+    void SetRenderCallback(std::function<void()> callback) { m_renderCallback = callback; }
+    ECS::Registry* GetRegistry() const { return m_registry.get(); }
+
 private:
     void ProcessEvents();
     void Update(float deltaTime);
@@ -46,6 +52,9 @@ private:
 
     bool m_running = false;
     float m_lastFrameTime = 0.0f;
+
+    FrameCallback m_updateCallback = nullptr;
+    std::function<void()> m_renderCallback = nullptr;
 };
 
 } // namespace KumariEngine::Core

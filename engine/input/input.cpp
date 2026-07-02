@@ -1,4 +1,5 @@
 #include "input.hpp"
+#include "core/event_manager.hpp"
 #include <cstring>
 #include <GLFW/glfw3.h>
 
@@ -49,6 +50,27 @@ void Input::Update() {
 
     m_mouseX = xpos;
     m_mouseY = ypos;
+
+    // Generate and queue input events
+    for (int i = 32; i < 348; ++i) {
+        if (IsKeyPressed(i)) {
+            Core::EventManager::Get().QueueEvent(std::make_unique<Core::KeyEvent>("OnKeyPressed", i));
+        } else if (IsKeyReleased(i)) {
+            Core::EventManager::Get().QueueEvent(std::make_unique<Core::KeyEvent>("OnKeyReleased", i));
+        }
+    }
+
+    for (int i = 0; i < 8; ++i) {
+        if (IsMouseButtonPressed(i)) {
+            Core::EventManager::Get().QueueEvent(std::make_unique<Core::MouseButtonEvent>("OnMouseButtonPressed", i));
+        } else if (IsMouseButtonReleased(i)) {
+            Core::EventManager::Get().QueueEvent(std::make_unique<Core::MouseButtonEvent>("OnMouseButtonReleased", i));
+        }
+    }
+
+    if (m_mouseDeltaX != 0.0 || m_mouseDeltaY != 0.0) {
+        Core::EventManager::Get().QueueEvent(std::make_unique<Core::MouseMovedEvent>(m_mouseX, m_mouseY));
+    }
 }
 
 bool Input::IsKeyPressed(int key) const {
@@ -69,6 +91,11 @@ bool Input::IsKeyDown(int key) const {
 bool Input::IsMouseButtonPressed(int button) const {
     if (button < 0 || button >= 8) return false;
     return m_mouseButtons[button] && !m_mouseButtonsPrev[button];
+}
+
+bool Input::IsMouseButtonReleased(int button) const {
+    if (button < 0 || button >= 8) return false;
+    return !m_mouseButtons[button] && m_mouseButtonsPrev[button];
 }
 
 bool Input::IsMouseButtonDown(int button) const {

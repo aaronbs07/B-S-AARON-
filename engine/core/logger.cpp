@@ -8,7 +8,20 @@
 
 namespace KumariEngine::Core {
 
+static Logger::LogCallback s_logCallback = nullptr;
+
+void Logger::RegisterLogCallback(Logger::LogCallback callback) {
+    s_logCallback = callback;
+}
+
+void Logger::UnregisterLogCallback() {
+    s_logCallback = nullptr;
+}
+
 void Logger::Log(LogLevel level, std::string_view category, std::string_view message) {
+    if (s_logCallback) {
+        s_logCallback(level, category, message);
+    }
     auto t = std::time(nullptr);
     struct tm timeinfo;
 #if defined(_MSC_VER)

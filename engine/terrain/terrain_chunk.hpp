@@ -60,6 +60,9 @@ public:
     // Generate mesh data on CPU (thread-safe, can run on background thread)
     void GenerateCPUData(int lod);
 
+    // Regenerate CPU data and upload to GPU (combines CPU generation & GPU upload)
+    bool Regenerate(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue);
+
     // Upload CPU data to Vulkan GPU buffers (must run on main thread)
     bool UploadToGPU(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, StagingResources& outResources);
 

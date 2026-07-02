@@ -63,6 +63,40 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(stb)
 
-# Add Engine and Game Modules
+# Lua Setup
+FetchContent_Declare(
+    lua
+    GIT_REPOSITORY https://github.com/walterschell/Lua.git
+    GIT_TAG master
+)
+FetchContent_MakeAvailable(lua)
+
+if(TARGET lua_static)
+    if(MSVC)
+        target_compile_options(lua_static PRIVATE /WX- /W0)
+    else()
+        target_compile_options(lua_static PRIVATE -w)
+    endif()
+endif()
+
+# ENet Setup
+FetchContent_Declare(
+    enet
+    GIT_REPOSITORY https://github.com/lsalzman/enet.git
+    GIT_TAG v1.3.18
+)
+FetchContent_MakeAvailable(enet)
+
+if(TARGET enet)
+    if(MSVC)
+        target_compile_options(enet PRIVATE /WX- /W0)
+        target_compile_definitions(enet PRIVATE _WINSOCK_DEPRECATED_NO_WARNINGS _CRT_SECURE_NO_WARNINGS)
+    else()
+        target_compile_options(enet PRIVATE -w)
+    endif()
+endif()
+
+# Add Engine, Editor and Game Modules
 add_subdirectory(engine)
+add_subdirectory(editor)
 add_subdirectory(game)
