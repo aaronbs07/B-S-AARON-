@@ -23,7 +23,14 @@ void ConsoleWindow::Update(float deltaTime) {
 }
 
 void ConsoleWindow::RenderUI() {
-    // UI rendering implementation
+    Core::Logger::Info("EditorUI", "=== [Console Window] ===");
+    auto filtered = GetFilteredLogs();
+    for (const auto& log : filtered) {
+        std::string lvlStr = "INFO";
+        if (log.level == Core::LogLevel::Warning) lvlStr = "WARN";
+        else if (log.level == Core::LogLevel::Error) lvlStr = "ERR ";
+        Core::Logger::Info("EditorUI", "  [%s][%s] %s", lvlStr.c_str(), log.category.c_str(), log.message.c_str());
+    }
 }
 
 void ConsoleWindow::OnLogReceived(Core::LogLevel level, std::string_view category, std::string_view message) {

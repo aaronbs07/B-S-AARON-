@@ -8,6 +8,8 @@
 #include "scene_node.hpp"
 #include "ecs/ecs.hpp"
 #include "resource/resource.hpp"
+#include "reflection/serializer.hpp"
+#include "reflection/deserializer.hpp"
 
 namespace KumariEngine::Scene {
 
@@ -103,6 +105,19 @@ public:
     void RegisterEntityNode(ECS::Entity entity, SceneNode* node);
     void UnregisterEntityNode(ECS::Entity entity);
     SceneNode* GetNodeByEntity(ECS::Entity entity) const;
+
+    // -------------------------------------------------------------------
+    // Serialization API (backed by reflection/Serializer + Deserializer)
+    // -------------------------------------------------------------------
+    bool SaveScene(std::string_view path,
+                   Reflection::SerializeFormat fmt = Reflection::SerializeFormat::JSON);
+    bool LoadScene(std::string_view path,
+                   Reflection::SerializeFormat fmt = Reflection::SerializeFormat::JSON);
+
+    bool SavePrefab(ECS::Entity rootEntity, std::string_view path,
+                    Reflection::SerializeFormat fmt = Reflection::SerializeFormat::JSON);
+    bool LoadPrefab(std::string_view path,
+                    Reflection::SerializeFormat fmt = Reflection::SerializeFormat::JSON);
 
 private:
     SceneManager() = default;

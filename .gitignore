@@ -1,31 +1,15 @@
-# Build folders
 build/
-out/
+build-*/
+build_*/
+dist/
+artifacts/
+crash_reports/
 
-# Visual Studio
-.vs/
-.vscode/
-
-# CMake
-CMakeCache.txt
-CMakeFiles/
-cmake_install.cmake
-
-# Compiled files
-*.obj
-*.o
-*.pch
-*.pdb
-*.ilk
-*.idb
-*.exp
-*.lib
-*.dll
-*.exe
-
-# Logs
+*.json
 *.log
+*.sav
 
-# Temporary files
-*.tmp
-*.cache
+docs/*output*
+docs/*.txt
+
+benchmark_report.json

@@ -16,6 +16,7 @@ void ResourceManager::UnloadUnused() {
 void ResourceManager::Clear() {
     std::unique_lock<std::shared_mutex> writeLock(m_mutex);
     m_resources.clear();
+    ClearLRU();
 }
 
 } // namespace KumariEngine::Resource

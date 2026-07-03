@@ -82,7 +82,11 @@ void BenchmarkFramework::EndBenchmark(const std::string& outputPath, const std::
         jsonFile << "    \"Physics\": " << Profiler::Get().GetMemoryUsage(MemoryCategory::Physics) << ",\n";
         jsonFile << "    \"Script\": " << Profiler::Get().GetMemoryUsage(MemoryCategory::Script) << ",\n";
         jsonFile << "    \"Network\": " << Profiler::Get().GetMemoryUsage(MemoryCategory::Network) << ",\n";
-        jsonFile << "    \"General\": " << Profiler::Get().GetMemoryUsage(MemoryCategory::General) << "\n";
+        jsonFile << "    \"General\": " << Profiler::Get().GetMemoryUsage(MemoryCategory::General) << ",\n";
+        jsonFile << "    \"Terrain\": " << Profiler::Get().GetMemoryUsage(MemoryCategory::Terrain) << ",\n";
+        jsonFile << "    \"Streaming\": " << Profiler::Get().GetMemoryUsage(MemoryCategory::Streaming) << ",\n";
+        jsonFile << "    \"HotReload\": " << Profiler::Get().GetMemoryUsage(MemoryCategory::HotReload) << ",\n";
+        jsonFile << "    \"Reflection\": " << Profiler::Get().GetMemoryUsage(MemoryCategory::Reflection) << "\n";
         jsonFile << "  },\n";
 
         jsonFile << "  \"loading_latencies\": {\n";
@@ -122,6 +126,10 @@ void BenchmarkFramework::EndBenchmark(const std::string& outputPath, const std::
         mdFile << "| **Script** | " << Profiler::Get().GetMemoryUsage(MemoryCategory::Script) << " |\n";
         mdFile << "| **Network** | " << Profiler::Get().GetMemoryUsage(MemoryCategory::Network) << " |\n";
         mdFile << "| **General** | " << Profiler::Get().GetMemoryUsage(MemoryCategory::General) << " |\n";
+        mdFile << "| **Terrain** | " << Profiler::Get().GetMemoryUsage(MemoryCategory::Terrain) << " |\n";
+        mdFile << "| **Streaming** | " << Profiler::Get().GetMemoryUsage(MemoryCategory::Streaming) << " |\n";
+        mdFile << "| **HotReload** | " << Profiler::Get().GetMemoryUsage(MemoryCategory::HotReload) << " |\n";
+        mdFile << "| **Reflection** | " << Profiler::Get().GetMemoryUsage(MemoryCategory::Reflection) << " |\n";
         mdFile << "| **Total** | " << Profiler::Get().GetTotalMemoryUsage() << " |\n\n";
 
         if (!m_loadingTimes.empty()) {

@@ -39,6 +39,20 @@ add_library(KumariEditor STATIC
     windows/cinematic_preview_window.cpp
     windows/gameplay_inspector_window.hpp
     windows/gameplay_inspector_window.cpp
+    windows/reflection_viewer.hpp
+    windows/reflection_viewer.cpp
+    editor_manager.hpp
+    editor_manager.cpp
+    docking_system.hpp
+    docking_system.cpp
+    windows/toolbar_window.hpp
+    windows/toolbar_window.cpp
+    windows/settings_window.hpp
+    windows/settings_window.cpp
+    windows/project_window.hpp
+    windows/project_window.cpp
+    windows/inspector_window_reflection.hpp
+    windows/inspector_window_reflection.cpp
 )
 
 target_include_directories(KumariEditor PUBLIC

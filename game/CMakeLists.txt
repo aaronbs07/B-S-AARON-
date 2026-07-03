@@ -35,3 +35,11 @@ add_executable(KumariEngineStressTests
 target_link_libraries(KumariEngineStressTests PRIVATE
     KumariEngine
 )
+
+add_executable(KumariEngineBenchmarkSuite
+    src/benchmark_suite.cpp
+)
+
+target_link_libraries(KumariEngineBenchmarkSuite PRIVATE
+    KumariEngine
+)

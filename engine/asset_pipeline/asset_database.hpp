@@ -61,6 +61,7 @@ public:
 
     const std::unordered_map<std::string, std::string>& GetGuidToPathMap() const { return m_guidToPath; }
     const std::string& GetAssetsRoot() const { return m_assetsRoot; }
+    void ReimportAsset(const std::string& path);
 
 private:
     AssetDatabase() = default;
@@ -81,7 +82,6 @@ private:
 
     void ScanDirectory(const std::filesystem::path& dir);
     void DetectRenamedMovedAssets();
-    void ReimportAsset(const std::string& path);
     std::string GetTypeFromExtension(const std::string& ext) const;
     std::string NormalizePath(const std::string& path) const;
 };

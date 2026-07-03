@@ -54,7 +54,12 @@ public:
     VkPipeline GetPBRPipeline() const { return m_pbrPipeline; }
     VkPipelineLayout GetPBRPipelineLayout() const { return m_pbrPipelineLayout; }
 
+    // Hot Reload interfaces
+    bool RecreatePBRPipeline(const uint32_t* vertCode, size_t vertSize, const uint32_t* fragCode, size_t fragSize);
+    bool UpdateGPUTexture(const std::string& path, int width, int height, const uint8_t* pixelData);
+
 private:
+    bool RecreatePBRPipelineHelper(VkShaderModule vertShaderModule, VkShaderModule fragShaderModule);
     bool CreateRenderPass();
     bool CreateGraphicsPipeline();
     bool CreateFramebuffers();
@@ -159,6 +164,15 @@ private:
 
     OptimizationManager m_optimizationManager;
     std::unique_ptr<Terrain::TerrainRenderer> m_terrainRenderer;
+
+    struct GPUTexture {
+        VkImage image = VK_NULL_HANDLE;
+        VkDeviceMemory memory = VK_NULL_HANDLE;
+        VkImageView view = VK_NULL_HANDLE;
+        int width = 0;
+        int height = 0;
+    };
+    std::unordered_map<std::string, GPUTexture> m_gpuTextures;
 };
 
 } // namespace KumariEngine::Renderer

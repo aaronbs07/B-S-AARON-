@@ -1,3 +1,4 @@
+// engine headers: resolved via ${CMAKE_SOURCE_DIR}/engine (see editor/CMakeLists.txt)
 #include "core/engine.hpp"
 #include "editor.hpp"
 #include "core/logger.hpp"
@@ -6,6 +7,8 @@
 
 int main() {
     try {
+        KumariEngine::Core::Logger::Info("Main", "Launching Kumari Editor...");
+
         KumariEngine::Core::Engine engine;
         
         if (!engine.Initialize("Kumari Editor App", 1280, 720)) {
@@ -16,6 +19,7 @@ int main() {
         KumariEngine::Editor::Editor editor;
         if (!editor.Initialize(engine.GetRegistry())) {
             KumariEngine::Core::Logger::Error("Main", "Failed to start Editor module.");
+            engine.Shutdown();
             return -1;
         }
 
@@ -27,10 +31,19 @@ int main() {
             editor.Render();
         });
 
-        engine.Run();
+        try {
+            engine.Run();
+        }
+        catch (...) {
+            editor.Shutdown();
+            engine.Shutdown();
+            throw;
+        }
 
         editor.Shutdown();
         engine.Shutdown();
+
+        KumariEngine::Core::Logger::Info("Main", "Editor closed successfully.");
     }
     catch (const std::exception& e) {
         std::cerr << "Unhandled fatal exception in Editor: " << e.what() << std::endl;

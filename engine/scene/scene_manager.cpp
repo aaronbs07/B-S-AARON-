@@ -231,4 +231,43 @@ SceneNode* SceneManager::GetNodeByEntity(ECS::Entity entity) const {
     return nullptr;
 }
 
+// ---------------------------------------------------------------------------
+// Serialization API -- delegates to reflection Serializer / Deserializer
+// ---------------------------------------------------------------------------
+
+bool SceneManager::SaveScene(std::string_view path, Reflection::SerializeFormat fmt) {
+    return Reflection::Serializer::SerializeSceneToFile(this, m_registry, path, fmt);
+}
+
+bool SceneManager::LoadScene(std::string_view path, Reflection::SerializeFormat /*fmt*/) {
+    Reset();
+    auto result = Reflection::Deserializer::DeserializeSceneFromFile(this, m_registry, path);
+    if (!result.success) {
+        Core::Logger::Error("SceneManager", "LoadScene failed: %s", result.error.c_str());
+        return false;
+    }
+    if (result.unknownPropertiesSkipped > 0) {
+        Core::Logger::Warning("SceneManager",
+            "LoadScene skipped %d unknown properties (forward-compat)",
+            result.unknownPropertiesSkipped);
+    }
+    return true;
+}
+
+bool SceneManager::SavePrefab(ECS::Entity rootEntity, std::string_view path,
+                               Reflection::SerializeFormat fmt) {
+    return Reflection::Serializer::SerializePrefabToFile(
+        rootEntity, m_registry, this, path, fmt);
+}
+
+bool SceneManager::LoadPrefab(std::string_view path, Reflection::SerializeFormat /*fmt*/) {
+    auto result = Reflection::Deserializer::DeserializePrefabFromFile(
+        m_registry, this, path);
+    if (!result.success) {
+        Core::Logger::Error("SceneManager", "LoadPrefab failed: %s", result.error.c_str());
+        return false;
+    }
+    return true;
+}
+
 } // namespace KumariEngine::Scene

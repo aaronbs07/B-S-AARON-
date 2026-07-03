@@ -3,6 +3,7 @@
 #include "core/vfs.hpp"
 #include "core/crash_reporter.hpp"
 #include "core/benchmark_framework.hpp"
+#include "core/engine_state.hpp"
 #include "asset_pipeline/project_packager.hpp"
 #include "platform/deployment_platform.hpp"
 #include "window/window.hpp"
@@ -26,6 +27,7 @@
 #include "scripting/script_engine.hpp"
 #include "networking/NetworkManager.hpp"
 #include "gameplay/GameInstance.hpp"
+#include "hot_reload/hot_reload_manager.hpp"
 
 namespace KumariEngine::Core {
 
@@ -37,6 +39,7 @@ Engine::~Engine() {
 }
 
 bool Engine::Initialize(std::string_view windowTitle, int width, int height, int argc, char** argv) {
+    Kumari::EngineStateManager::Get().SetState(Kumari::EngineState::Loading);
     s_initStartTime = std::chrono::high_resolution_clock::now();
     
     // 0. Initialize Crash Reporter and parse CLI arguments
@@ -194,6 +197,10 @@ bool Engine::Initialize(std::string_view windowTitle, int width, int height, int
         return false;
     }
 
+    // Initialize Hot Reload Foundation
+    HotReload::HotReloadManager::Get().Initialize("game/assets", vulkanRenderer.get());
+
+    Kumari::EngineStateManager::Get().SetState(Kumari::EngineState::Running);
     m_running = true;
     m_lastFrameTime = static_cast<float>(glfwGetTime());
 
@@ -203,8 +210,15 @@ bool Engine::Initialize(std::string_view windowTitle, int width, int height, int
 
 void Engine::Run() {
     Logger::Info("Engine", "Entering main game loop.");
+    auto& state = Kumari::EngineStateManager::Get();
     while (m_running) {
         ProcessEvents();
+
+        if (state.GetState() == Kumari::EngineState::Shutdown) {
+            m_running = false;
+        }
+
+        if (!m_running) break;
 
         float currentTime = static_cast<float>(glfwGetTime());
         float deltaTime = currentTime - m_lastFrameTime;
@@ -217,6 +231,7 @@ void Engine::Run() {
 
 void Engine::ProcessEvents() {
     if (m_window->ShouldClose()) {
+        Kumari::EngineStateManager::Get().SetState(Kumari::EngineState::Shutdown);
         m_running = false;
     }
     glfwPollEvents();
@@ -234,10 +249,18 @@ void Engine::Update(float deltaTime) {
 
     m_input->Update();
 
-    // Escape exits the application
+    // Escape toggles pause state
     if (m_input->IsKeyPressed(GLFW_KEY_ESCAPE)) {
-        Logger::Info("Engine", "Escape key detected. Triggering shutdown.");
-        m_running = false;
+        auto& state = Kumari::EngineStateManager::Get();
+
+        if (state.IsRunning()) {
+            state.SetState(Kumari::EngineState::Paused);
+            Logger::Info("Engine", "Escape key detected. Pausing engine.");
+        }
+        else if (state.IsPaused()) {
+            state.SetState(Kumari::EngineState::Running);
+            Logger::Info("Engine", "Escape key detected. Resuming engine.");
+        }
     }
 
     // Run scripting engine updates
@@ -302,6 +325,9 @@ void Engine::Update(float deltaTime) {
         Logger::Info("Engine", "Physics Debug Drawing: %s", pdbg.IsEnabled() ? "ON" : "OFF");
     }
 
+    // Update Hot Reload Foundation
+    HotReload::HotReloadManager::Get().Update(deltaTime);
+
     if (m_debugOverlay) {
         m_debugOverlay->Update(deltaTime, m_window.get());
     }
@@ -326,7 +352,11 @@ void Engine::Render() {
 void Engine::Shutdown() {
     if (!m_running && !m_window && !m_renderer) return;
 
+    Kumari::EngineStateManager::Get().SetState(Kumari::EngineState::Shutdown);
     Logger::Info("Engine", "Beginning shutdown sequence...");
+
+    // Shutdown Hot Reload Foundation
+    HotReload::HotReloadManager::Get().Shutdown();
 
     m_running = false;
 

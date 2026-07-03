@@ -7,6 +7,8 @@ add_library(KumariEngine STATIC
     core/encryption.hpp
     core/engine.hpp
     core/engine.cpp
+    core/engine_state.hpp
+    core/engine_state.cpp
     core/event_manager.hpp
     core/event_manager.cpp
     core/debug_overlay.hpp
@@ -128,6 +130,13 @@ add_library(KumariEngine STATIC
     scripting/file_watcher.cpp
     scripting/hot_reload_manager.hpp
     scripting/hot_reload_manager.cpp
+    hot_reload/hot_reload_manager.hpp
+    hot_reload/hot_reload_manager.cpp
+    hot_reload/file_watcher.hpp
+    hot_reload/file_watcher.cpp
+    hot_reload/reload_queue.hpp
+    hot_reload/reload_queue.cpp
+    hot_reload/reload_events.hpp
     gameplay/GameplayComponents.hpp
     gameplay/InventorySystem.hpp
     gameplay/InventorySystem.cpp
@@ -196,6 +205,12 @@ add_library(KumariEngine STATIC
     particle/particle_system.cpp
     core/profiler.hpp
     core/profiler.cpp
+    core/memory_tracker.hpp
+    core/memory_tracker.cpp
+    core/thread_profiler.hpp
+    core/thread_profiler.cpp
+    core/frame_graph.hpp
+    core/frame_graph.cpp
     core/benchmark_framework.hpp
     core/benchmark_framework.cpp
     core/crash_reporter.hpp
@@ -204,6 +219,18 @@ add_library(KumariEngine STATIC
     platform/plugin_manager.cpp
     platform/deployment_platform.hpp
     platform/deployment_platform.cpp
+    reflection/metadata.hpp
+    reflection/type_info.hpp
+    reflection/property.hpp
+    reflection/property.cpp
+    reflection/type_registry.hpp
+    reflection/type_registry.cpp
+    reflection/reflection.hpp
+    reflection/serializer.hpp
+    reflection/serializer.cpp
+    reflection/deserializer.hpp
+    reflection/deserializer.cpp
+    reflection/reflection_tests.hpp
 )
 
 # Expose engine source root and stb root for clean includes

@@ -57,7 +57,11 @@ void StatisticsWindow::Update(float deltaTime) {
 }
 
 void StatisticsWindow::RenderUI() {
-    // UI rendering implementation
+    Core::Logger::Info("EditorUI", "=== [Statistics Window] ===");
+    Core::Logger::Info("EditorUI", "  FPS: %.2f | FrameTime: %.2f ms", m_telemetry.fps, m_telemetry.frameTimeMs);
+    Core::Logger::Info("EditorUI", "  Entities: %d | Draw Calls: %d | Triangles: %d", m_telemetry.entityCount, m_telemetry.drawCalls, m_telemetry.triangles);
+    Core::Logger::Info("EditorUI", "  Lua Scripts: %d | Network Status: %s", m_telemetry.luaScriptCount, m_telemetry.networkStatus.c_str());
+    Core::Logger::Info("EditorUI", "  Memory Usage Estimate: %.2f MB", m_telemetry.memoryUsageMB);
 }
 
 } // namespace KumariEngine::Editor

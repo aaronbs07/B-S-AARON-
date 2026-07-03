@@ -1,6 +1,9 @@
 #include "advanced_tools_windows.hpp"
 #include "core/logger.hpp"
 #include "core/profiler.hpp"
+#include "core/memory_tracker.hpp"
+#include "core/thread_profiler.hpp"
+#include "core/frame_graph.hpp"
 #include "platform/plugin_manager.hpp"
 #include "editor/selection_system.hpp"
 #include <iostream>
@@ -67,7 +70,9 @@ void ModifyParticleEmitterCommand::Undo() {
 
 // 1. Animation Editor
 void AnimationEditorWindow::RenderUI() {
-    // Render ImGui mock elements
+    Core::Logger::Info("EditorUI", "=== [Animation Editor Window] ===");
+    Core::Logger::Info("EditorUI", "  States: Idle, Run, Jump, Attack");
+    Core::Logger::Info("EditorUI", "  Blend Parameters: Speed (0.0), Direction (0.0)");
 }
 void AnimationEditorWindow::SetCurrentState(ECS::Registry* reg, ECS::Entity ent, const std::string& state) {
     if (!reg || !reg->HasComponent<Animation::AnimationComponent>(ent)) return;
@@ -210,7 +215,9 @@ void AIEditorWindow::SetAgentDestination(ECS::Registry* reg, ECS::Entity ent, co
 
 // 3. Visual Scripting Editor
 void VisualScriptingWindow::RenderUI() {
-    // Render ImGui mock elements
+    Core::Logger::Info("EditorUI", "=== [Visual Scripting Window] ===");
+    Core::Logger::Info("EditorUI", "  Graph Nodes: Start, Update, CustomEvent");
+    Core::Logger::Info("EditorUI", "  Breakpoints: None");
 }
 void VisualScriptingWindow::AddNode(ECS::Registry* reg, ECS::Entity ent, const Scripting::VSNode& node) {
     if (!reg || !reg->HasComponent<Scripting::VisualScriptingComponent>(ent)) return;
@@ -278,7 +285,9 @@ void AudioMixerWindow::SetChannelMute(Audio::MixerChannel chan, bool mute) {
 
 // 5. Particle System Editor
 void ParticleEditorWindow::RenderUI() {
-    // Render ImGui mock elements
+    Core::Logger::Info("EditorUI", "=== [Particle Editor Window] ===");
+    Core::Logger::Info("EditorUI", "  Emitters: Fire, Smoke, Explosion");
+    Core::Logger::Info("EditorUI", "  Active Particles: 0");
 }
 void ParticleEditorWindow::UpdateEmitterSettings(ECS::Registry* reg, ECS::Entity ent, const Particle::ParticleEmitterSettings& settings) {
     if (!reg || !reg->HasComponent<Particle::ParticleSystemComponent>(ent)) return;
@@ -288,9 +297,50 @@ void ParticleEditorWindow::UpdateEmitterSettings(ECS::Registry* reg, ECS::Entity
     UndoSystem::Get().Execute(std::make_shared<ModifyParticleEmitterCommand>(reg, ent, oldSettings, settings));
 }
 
+static void RenderCPUSample(const Core::ProfilerSample& sample, int indent) {
+    std::string indentStr(indent * 2, ' ');
+    Core::Logger::Info("EditorUI", "%s  - %s: %.2f ms", indentStr.c_str(), sample.name.c_str(), sample.durationMs);
+    for (const auto& child : sample.children) {
+        RenderCPUSample(child, indent + 1);
+    }
+}
+
 // 6. Profiler Window
 void ProfilerWindow::RenderUI() {
-    // Tabs mock logic
+    Core::Logger::Info("EditorUI", "=== [Profiler Window] ===");
+    Core::Logger::Info("EditorUI", "  [CPU timings]");
+    auto cpuHistory = Core::Profiler::Get().GetCPUHistory();
+    for (const auto& sample : cpuHistory) {
+        RenderCPUSample(sample, 0);
+    }
+
+    Core::Logger::Info("EditorUI", "  [GPU timings]");
+    auto gpuSamples = Core::Profiler::Get().GetGPUSamples();
+    for (const auto& [name, duration] : gpuSamples) {
+        Core::Logger::Info("EditorUI", "    - %s: %.2f ms", name.c_str(), duration);
+    }
+
+    Core::Logger::Info("EditorUI", "  [Thread states]");
+    auto threadStates = Core::ThreadProfiler::Get().GetThreadStates();
+    for (const auto& [tid, state] : threadStates) {
+        (void)tid;
+        Core::Logger::Info("EditorUI", "    - %s: %.1f%% utilization", state.threadName.c_str(), state.lastUtilizationRatio * 100.0);
+    }
+
+    Core::Logger::Info("EditorUI", "  [Memory tracking]");
+    const char* categoryNames[] = {
+        "ECS", "Renderer", "Audio", "Physics", "Script", "Network", "General",
+        "Terrain", "Streaming", "HotReload", "Reflection"
+    };
+    for (int i = 0; i <= static_cast<int>(Core::MemoryCategory::Reflection); ++i) {
+        auto cat = static_cast<Core::MemoryCategory>(i);
+        auto stats = Core::MemoryTracker::Get().GetStats(cat);
+        Core::Logger::Info("EditorUI", "    - %s: %.2f KB (Peak: %.2f KB, Frag: %.1f%%)",
+                           categoryNames[i],
+                           static_cast<double>(stats.currentUsage) / 1024.0,
+                           static_cast<double>(stats.peakUsage) / 1024.0,
+                           stats.fragmentationRatio * 100.0f);
+    }
 }
 void ProfilerWindow::TriggerFrameCapture(ECS::Registry* reg, const std::string& filepath) {
     if (Core::Profiler::Get().CaptureFrame(filepath, reg)) {
@@ -302,7 +352,11 @@ void ProfilerWindow::TriggerFrameCapture(ECS::Registry* reg, const std::string& 
 
 // 7. Packaging / Build Wizard
 void BuildWizardWindow::RenderUI() {
-    // Wizard mock logic
+    Core::Logger::Info("EditorUI", "=== [Build Wizard Window] ===");
+    for (const auto& profile : m_profiles) {
+        Core::Logger::Info("EditorUI", "  Profile: %s | Platform: %s | Configuration: %s",
+                           profile.name.c_str(), profile.platform.c_str(), profile.isRelease ? "Release" : "Debug");
+    }
 }
 void BuildWizardWindow::ConfigureBuildProfile(const std::string& name, const std::string& platform, bool release) {
     m_profiles.push_back({name, platform, release});
@@ -333,7 +387,12 @@ bool BuildWizardWindow::BuildProject(const std::string& profileName) {
 
 // 8. Plugin Manager
 void PluginManagerWindow::RenderUI() {
-    // Listing mock plugins
+    Core::Logger::Info("EditorUI", "=== [Plugin Manager Window] ===");
+    const auto& plugins = Platform::PluginManager::Get().GetPlugins();
+    for (const auto& [name, plugin] : plugins) {
+        Core::Logger::Info("EditorUI", "  Plugin: %s | Version: %s",
+                           name.c_str(), plugin->GetVersion().c_str());
+    }
 }
 void PluginManagerWindow::LoadPlugin(std::shared_ptr<Platform::Plugin> p) {
     Platform::PluginManager::Get().LoadPlugin(p);
@@ -344,7 +403,8 @@ void PluginManagerWindow::UnloadPlugin(const std::string& name) {
 
 // 9. Documentation / Help system
 void DocumentationWindow::RenderUI() {
-    // Search panel
+    Core::Logger::Info("EditorUI", "=== [Documentation Window] ===");
+    Core::Logger::Info("EditorUI", "  Topics: ecs, navmesh, audio, particles, undo");
 }
 void DocumentationWindow::GenerateAPIHelp(const std::string& destPath) {
     Platform::PluginManager::Get().GenerateAPIDocumentation(destPath);

@@ -56,6 +56,7 @@ private:
 
     std::vector<std::shared_ptr<EditorWindow>> m_windows;
     ECS::Registry* m_registry = nullptr;
+    bool m_initialized = false;
 };
 
 } // namespace KumariEngine::Editor

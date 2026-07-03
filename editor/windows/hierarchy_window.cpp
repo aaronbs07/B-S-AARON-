@@ -19,9 +19,9 @@ void SceneHierarchyWindow::Initialize() {
 void SceneHierarchyWindow::Update(float deltaTime) {
     (void)deltaTime;
 }
-
 void SceneHierarchyWindow::RenderUI() {
     auto* root = Scene::SceneManager::Get().GetRootNode();
+    Core::Logger::Info("EditorUI", "=== [Scene Hierarchy] ===");
     if (root) {
         PrintNodeHierarchy(root, 0);
     }
@@ -30,12 +30,15 @@ void SceneHierarchyWindow::RenderUI() {
 void SceneHierarchyWindow::PrintNodeHierarchy(Scene::SceneNode* node, int depth) {
     if (!node) return;
     std::string indent(depth * 2, ' ');
-    // Programmatic hierarchy layout log / print hook
+    std::string details = "";
+    if (node->GetEntity() != ECS::NULL_ENTITY) {
+        details = " [Entity: " + std::to_string(node->GetEntity()) + "]";
+    }
+    Core::Logger::Info("EditorUI", "%s- %s%s", indent.c_str(), node->GetName().c_str(), details.c_str());
     for (const auto& child : node->GetChildren()) {
         PrintNodeHierarchy(child.get(), depth + 1);
     }
 }
-
 void SceneHierarchyWindow::SelectEntity(ECS::Entity entity) {
     SelectionSystem::Get().Select(entity);
 }

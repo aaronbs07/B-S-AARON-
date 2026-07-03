@@ -2,6 +2,18 @@
 #pragma warning(disable: 4189)
 #endif
 #include "core/engine.hpp"
+#include "core/engine_state.hpp"
+#include "resource/resource_manager.hpp"
+#include "editor/editor.hpp"
+#include "editor/editor_manager.hpp"
+#include "editor/docking_system.hpp"
+#include "editor/window_system.hpp"
+#include "editor/selection_system.hpp"
+#include "editor/undo_redo.hpp"
+#include "editor/windows/inspector_window_reflection.hpp"
+#include "editor/windows/hierarchy_window.hpp"
+#include "editor/windows/console_window.hpp"
+#include "editor/windows/asset_browser_window.hpp"
 #include "core/logger.hpp"
 #include "ecs/ecs.hpp"
 #include "scene/scene_node.hpp"
@@ -1388,6 +1400,204 @@ void VerifyAudioCameraCinematicTests() {
     std::cout << "=== ALL AUDIO, CAMERA, TIMELINE & CINEMATIC TESTS PASSED! ===" << std::endl;
 }
 
+void VerifyEditorTests() {
+    std::cout << "=== RUNNING RUNTIME EDITOR TESTS ===" << std::endl;
+    ECS::Registry registry;
+    registry.RegisterComponent<Scene::TransformComponent>();
+
+    Editor::Editor editor;
+    bool initOk = editor.Initialize(&registry);
+    assert(initOk);
+    std::cout << "  1. Editor Initialization: PASSED" << std::endl;
+
+    // 1. Entity creation, component additions and removals, and GUID assignment
+    ECS::Entity testEntity = registry.CreateEntity();
+    Save::EntityGUID entityGuid = registry.CreateGUID(testEntity);
+    
+    // Add components
+    auto& tc = registry.AddComponent<Scene::TransformComponent>(testEntity);
+    tc.position = glm::vec3(1.0f, 2.0f, 3.0f);
+    tc.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+    tc.scale = glm::vec3(1.0f, 1.0f, 1.0f);
+
+    auto& hc = registry.AddComponent<Gameplay::HealthComponent>(testEntity);
+    hc.currentHealth = 85.0f;
+    assert(registry.HasComponent<Gameplay::HealthComponent>(testEntity));
+
+    // Remove components
+    registry.RemoveComponent<Gameplay::HealthComponent>(testEntity);
+    assert(!registry.HasComponent<Gameplay::HealthComponent>(testEntity));
+
+    // Re-add component with specific value to verify serialization
+    auto& hc2 = registry.AddComponent<Gameplay::HealthComponent>(testEntity);
+    hc2.currentHealth = 75.0f;
+
+    std::cout << "  2. Entity and Component Add/Remove Lifecycle: PASSED" << std::endl;
+
+    // Entity selection
+    Editor::SelectionSystem::Get().Select(testEntity);
+    assert(Editor::SelectionSystem::Get().GetSelected() == testEntity);
+    std::cout << "  3. Selection System: PASSED" << std::endl;
+
+    // 2. Save Scene and Open (Load) Scene Verification
+    bool saveOk = editor.SaveScene("temp_editor_scene.sav");
+    assert(saveOk);
+
+    // Modify scene component values and check loading restores them
+    tc.position = glm::vec3(99.0f, 99.0f, 99.0f);
+    assert(registry.GetComponent<Scene::TransformComponent>(testEntity).position.x == 99.0f);
+
+    bool loadOk = editor.OpenScene("temp_editor_scene.sav");
+    assert(loadOk);
+
+    // Verify scene contents remain correct
+    ECS::Entity restoredEntity = registry.GetEntityByGUID(entityGuid);
+    assert(restoredEntity != ECS::NULL_ENTITY);
+    assert(registry.HasComponent<Scene::TransformComponent>(restoredEntity));
+    assert(registry.HasComponent<Gameplay::HealthComponent>(restoredEntity));
+    assert(registry.GetComponent<Scene::TransformComponent>(restoredEntity).position.x == 1.0f);
+    assert(registry.GetComponent<Scene::TransformComponent>(restoredEntity).position.y == 2.0f);
+    assert(registry.GetComponent<Gameplay::HealthComponent>(restoredEntity).currentHealth == 75.0f);
+    std::remove("temp_editor_scene.sav");
+    std::cout << "  4. Scene Save & Load Verification: PASSED" << std::endl;
+
+    // 3. Play Mode transitions, StepFrame, and Scene restoration
+    auto& em = Editor::EditorManager::Get();
+    assert(em.IsEditing());
+    
+    // Enter Play Mode (which takes a snapshot)
+    em.EnterPlayMode();
+    assert(em.IsPlaying());
+    assert(Kumari::EngineStateManager::Get().GetState() == Kumari::EngineState::Running);
+    
+    // Modify component state during play mode
+    restoredEntity = registry.GetEntityByGUID(entityGuid);
+    assert(restoredEntity != ECS::NULL_ENTITY);
+    registry.GetComponent<Gameplay::HealthComponent>(restoredEntity).currentHealth = 10.0f;
+    assert(registry.GetComponent<Gameplay::HealthComponent>(restoredEntity).currentHealth == 10.0f);
+
+    // Pause Play Mode
+    em.PausePlayMode();
+    assert(em.IsPaused());
+    assert(Kumari::EngineStateManager::Get().GetState() == Kumari::EngineState::Paused);
+
+    // Step one frame (advances exactly one frame and returns to paused)
+    em.StepFrame();
+    assert(em.IsPaused()); // Editor state is paused
+    assert(Kumari::EngineStateManager::Get().GetState() == Kumari::EngineState::Running); // Temporarily running to tick one frame
+
+    // Simulate update tick (which triggers the pending re-pause)
+    em.Update(0.016f);
+    assert(em.IsPaused());
+    assert(Kumari::EngineStateManager::Get().GetState() == Kumari::EngineState::Paused); // Re-paused successfully
+
+    // Stop Play Mode (exits play mode and restores original scene snapshot)
+    em.ExitPlayMode();
+    assert(em.IsEditing());
+    assert(Kumari::EngineStateManager::Get().GetState() == Kumari::EngineState::Running); // Back to editor default running
+
+    // Verify scene is restored back to the snapshot state (75.0f health)
+    restoredEntity = registry.GetEntityByGUID(entityGuid);
+    assert(restoredEntity != ECS::NULL_ENTITY);
+    assert(registry.GetComponent<Gameplay::HealthComponent>(restoredEntity).currentHealth == 75.0f);
+
+    std::cout << "  5. Play Mode Transitions, StepFrame & Scene Restore: PASSED" << std::endl;
+
+    // Undo/Redo operations
+    auto& undo = Editor::UndoSystem::Get();
+    undo.Clear();
+    
+    auto& tcRef = registry.GetComponent<Scene::TransformComponent>(restoredEntity);
+    auto cmd = std::make_shared<Editor::ModifyTransformCommand>(&registry, restoredEntity, tcRef.position, tcRef.rotation, tcRef.scale, glm::vec3(10.0f, tcRef.position.y, tcRef.position.z), tcRef.rotation, tcRef.scale);
+    undo.Execute(cmd);
+    
+    assert(tcRef.position.x == 10.0f);
+    undo.Undo();
+    assert(tcRef.position.x == 1.0f);
+    undo.Redo();
+    assert(tcRef.position.x == 10.0f);
+    std::cout << "  6. Undo/Redo Transform: PASSED" << std::endl;
+
+    // Console filtering
+    auto consolePtr = Editor::WindowSystem::Get().GetWindow("Console");
+    auto* console = consolePtr ? dynamic_cast<Editor::ConsoleWindow*>(consolePtr.get()) : nullptr;
+    if (console) {
+        console->Clear();
+        Core::Logger::Info("TestCategory", "This is an info message");
+        Core::Logger::Warning("TestCategory", "This is a warning message");
+        Core::Logger::Error("TestCategory", "This is an error message");
+        
+        assert(console->GetLogs().size() >= 3);
+        console->SetLevelFilter(Core::LogLevel::Warning, false);
+        auto filtered = console->GetFilteredLogs();
+        // Warn logs are filtered out
+        for (const auto& log : filtered) {
+            assert(log.level != Core::LogLevel::Warning);
+        }
+        std::cout << "  7. Console Filtering: PASSED" << std::endl;
+    }
+
+    // Asset Browser scan
+    auto browserPtr = Editor::WindowSystem::Get().GetWindow("Asset Browser");
+    auto* browser = browserPtr ? dynamic_cast<Editor::AssetBrowserWindow*>(browserPtr.get()) : nullptr;
+    if (browser) {
+        browser->SetCurrentPath("game/assets");
+        auto files = browser->GetFiles();
+        std::cout << "  8. Asset Browser directory scan: PASSED (found " << files.size() << " files)" << std::endl;
+    }
+
+    // Shutdown editor
+    editor.Shutdown();
+    std::cout << "=== ALL RUNTIME EDITOR TESTS PASSED! ===" << std::endl;
+}
+
+void VerifyResourceLRUTests() {
+    std::cout << "=== RUNNING RESOURCE LRU EVICTION TESTS ===" << std::endl;
+    auto& rm = Resource::ResourceManager::Get();
+    rm.Clear();
+    rm.SetCapacity(2);
+    assert(rm.GetCapacity() == 2);
+
+    struct DummyResource : public Resource::Resource {
+        DummyResource() = default;
+    };
+
+    // Load Resource A and Resource B
+    auto resA = rm.Load<DummyResource>("A", []() { return std::make_shared<DummyResource>(); });
+    auto resB = rm.Load<DummyResource>("B", []() { return std::make_shared<DummyResource>(); });
+
+    // Verify they are both loaded
+    assert(rm.Get<DummyResource>("A") != nullptr);
+    assert(rm.Get<DummyResource>("B") != nullptr);
+
+    // Let go of our strong reference to A so it is only held by the cache
+    resA = nullptr;
+
+    // Load Resource C (A should be evicted because capacity is 2 and A was least recently used)
+    auto resC = rm.Load<DummyResource>("C", []() { return std::make_shared<DummyResource>(); });
+
+    // Verify A is evicted (destructed), and B & C are present
+    assert(rm.Get<DummyResource>("A") == nullptr);
+    assert(rm.Get<DummyResource>("B") != nullptr);
+    assert(rm.Get<DummyResource>("C") != nullptr);
+
+    // Let go of B, Touch B (Touch happens on Get), then load D (so C is evicted, B is kept)
+    resB = nullptr;
+    auto resB_again = rm.Get<DummyResource>("B"); // touches B, B is now MRU
+    resB_again = nullptr;
+    resC = nullptr; // let go of C
+
+    auto resD = rm.Load<DummyResource>("D", []() { return std::make_shared<DummyResource>(); });
+
+    // C should be evicted, B and D should be present
+    assert(rm.Get<DummyResource>("C") == nullptr);
+    assert(rm.Get<DummyResource>("B") != nullptr);
+    assert(rm.Get<DummyResource>("D") != nullptr);
+
+    rm.Clear();
+    std::cout << "=== ALL RESOURCE LRU EVICTION TESTS PASSED! ===" << std::endl;
+}
+
 int main() {
     std::cout << "Starting Kumari Kandam Regression Test Suite..." << std::endl;
 
@@ -1418,6 +1628,14 @@ int main() {
     std::cout << "Running Audio, Camera, Timeline & Cinematic Tests..." << std::endl;
     VerifyAudioCameraCinematicTests();
     std::cout << "Audio, Camera, Timeline & Cinematic Tests passed!" << std::endl;
+
+    std::cout << "Running Runtime Editor Tests..." << std::endl;
+    VerifyEditorTests();
+    std::cout << "Runtime Editor Tests passed!" << std::endl;
+
+    std::cout << "Running Resource LRU Eviction Tests..." << std::endl;
+    VerifyResourceLRUTests();
+    std::cout << "Resource LRU Eviction Tests passed!" << std::endl;
 
     std::cout << "ALL REGRESSION TESTS COMPLETED SUCCESSFULLY!" << std::endl;
 

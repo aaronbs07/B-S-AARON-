@@ -101,7 +101,7 @@ bool ProjectPackager::PackProject(const std::string& assetsRoot, const std::stri
         return false;
     }
 
-    manifest << "VERSION 1.0.0\n";
+    manifest << "VERSION 1.0.0-rc1\n";
 
     for (const auto& group : groups) {
         if (group.guids.empty()) continue;

@@ -7,6 +7,10 @@
 #include "scripting/script_engine.hpp"
 #include "networking/NetworkManager.hpp"
 #include "networking/ReplicationManager.hpp"
+#include "hot_reload/hot_reload_manager.hpp"
+#include "memory_tracker.hpp"
+#include "thread_profiler.hpp"
+#include "frame_graph.hpp"
 #include <sstream>
 #include <iomanip>
 #include <cmath>
@@ -21,6 +25,10 @@ void DebugOverlay::Update(float deltaTime, Window::Window* window) {
     if (m_accumulatedTime >= 1.0f) {
         float fps = static_cast<float>(m_frameCount) / m_accumulatedTime;
         float frameTime = (m_accumulatedTime / static_cast<float>(m_frameCount)) * 1000.0f;
+
+        // Update ThreadProfiler and FrameGraph timing records
+        ThreadProfiler::Get().UpdateUtilization(m_accumulatedTime);
+        FrameGraph::Get().RecordFrame(m_frameCount, frameTime);
 
         auto activeCam = Camera::CameraManager::Get().GetActiveCamera();
         glm::vec3 camPos(0.0f);
@@ -81,6 +89,11 @@ void DebugOverlay::Update(float deltaTime, Window::Window* window) {
            << "Scripts: " << scriptCount << " (" << std::fixed << std::setprecision(1) << scriptMemKB << "KB) | "
            << "Wireframe: " << (tm.IsWireframe() ? "ON" : "OFF");
 
+        auto& hr = HotReload::HotReloadManager::Get();
+        ss << " | HR: " << (hr.IsWatching() ? "ON" : "OFF")
+           << " (" << hr.GetSuccessCount() << "/" << hr.GetFailureCount()
+           << ", Q: " << hr.GetQueuedCount() << ", Last: " << hr.GetLastReloadTime() << ")";
+
         if (window) {
             window->SetTitle(ss.str());
         }
@@ -106,6 +119,11 @@ void DebugOverlay::Update(float deltaTime, Window::Window* window) {
                          tm.IsWireframe() ? "ON" : "OFF",
                          tm.IsChunkBordersEnabled() ? "ON" : "OFF",
                          tm.IsDebugVisEnabled() ? "ON" : "OFF");
+
+            Logger::Info("Telemetry", "Hot Reload: %s | Success: %d | Failure: %d | Queued: %d | Last: %s",
+                         hr.IsWatching() ? "Watching" : "Stopped",
+                         hr.GetSuccessCount(), hr.GetFailureCount(),
+                         hr.GetQueuedCount(), hr.GetLastReloadTime().c_str());
             
             std::string scriptStats = Scripting::ScriptEngine::Get().GetActiveScriptStats();
             std::string profilerInfo = Scripting::ScriptEngine::Get().DumpProfilerInfo();

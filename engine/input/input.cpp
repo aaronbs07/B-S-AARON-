@@ -1,5 +1,6 @@
 #include "input.hpp"
 #include "core/event_manager.hpp"
+#include "core/engine_state.hpp"
 #include <cstring>
 #include <GLFW/glfw3.h>
 
@@ -20,6 +21,33 @@ void Input::Initialize(GLFWwindow* window) {
 
 void Input::Update() {
     if (!m_window) return;
+
+    auto& state = Kumari::EngineStateManager::Get();
+
+    if (state.GetState() == Kumari::EngineState::Paused) {
+        // Buffer and poll ESC key only so the pause toggle still works
+        m_keysPrev[GLFW_KEY_ESCAPE] = m_keys[GLFW_KEY_ESCAPE];
+        m_keys[GLFW_KEY_ESCAPE] = (glfwGetKey(m_window, GLFW_KEY_ESCAPE) == GLFW_PRESS);
+
+        // Clear all other keys and mouse buttons to prevent stuck inputs
+        for (int i = 32; i < 348; ++i) {
+            if (i != GLFW_KEY_ESCAPE) {
+                m_keysPrev[i] = false;
+                m_keys[i] = false;
+            }
+        }
+        for (int i = 0; i < 8; ++i) {
+            m_mouseButtonsPrev[i] = false;
+            m_mouseButtons[i] = false;
+        }
+        m_mouseDeltaX = 0.0;
+        m_mouseDeltaY = 0.0;
+        return;
+    }
+
+    if (state.GetState() == Kumari::EngineState::Shutdown) {
+        return;
+    }
 
     // Buffer previous state for edge detection (press/release)
     std::memcpy(m_keysPrev, m_keys, sizeof(m_keys));

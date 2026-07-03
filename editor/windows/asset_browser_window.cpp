@@ -27,7 +27,12 @@ void AssetBrowserWindow::Update(float deltaTime) {
 }
 
 void AssetBrowserWindow::RenderUI() {
-    // UI rendering implementation
+    Core::Logger::Info("EditorUI", "=== [Asset Browser] ===");
+    Core::Logger::Info("EditorUI", "  Path: %s", m_currentPath.string().c_str());
+    auto files = GetFiles();
+    for (const auto& file : files) {
+        Core::Logger::Info("EditorUI", "    %s %s (%s)", file.icon.c_str(), file.name.c_str(), file.relativePath.c_str());
+    }
 }
 
 void AssetBrowserWindow::SetCurrentPath(const std::string& path) {

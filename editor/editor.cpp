@@ -1,6 +1,8 @@
 #include "editor.hpp"
 #include "window_system.hpp"
 #include "selection_system.hpp"
+#include "editor_manager.hpp"
+#include "docking_system.hpp"
 #include "windows/scene_view_window.hpp"
 #include "windows/game_view_window.hpp"
 #include "windows/hierarchy_window.hpp"
@@ -15,6 +17,10 @@
 #include "windows/timeline_editor_window.hpp"
 #include "windows/cinematic_preview_window.hpp"
 #include "windows/gameplay_inspector_window.hpp"
+#include "windows/reflection_viewer.hpp"
+#include "windows/toolbar_window.hpp"
+#include "windows/settings_window.hpp"
+#include "windows/project_window.hpp"
 #include "camera/camera_component.hpp"
 #include "lighting/light_component.hpp"
 #include "renderer/mesh_renderer_component.hpp"
@@ -80,8 +86,12 @@ bool Editor::Initialize(ECS::Registry* registry) {
         m_registry->RegisterComponent<Gameplay::GameStateComponent>();
     }
 
+    // Initialize EditorManager
+    EditorManager::Get().Initialize(m_registry);
+
     // Load configuration
     m_config.Load("editor_config.ini");
+    DockingSystem::Get().LoadLayout("editor_config.ini");
 
     // Instantiating and adding editor windows
     auto& ws = WindowSystem::Get();
@@ -112,6 +122,12 @@ bool Editor::Initialize(ECS::Registry* registry) {
     ws.AddWindow(std::make_shared<CameraPreviewWindow>());
     ws.AddWindow(std::make_shared<TimelineEditorWindow>());
     ws.AddWindow(std::make_shared<CinematicPreviewWindow>());
+    ws.AddWindow(std::make_shared<ToolbarWindow>());
+    ws.AddWindow(std::make_shared<SettingsWindow>());
+    ws.AddWindow(std::make_shared<ProjectWindow>());
+
+    // Milestone 10 Phase 4: Reflection Viewer
+    ws.AddWindow(std::make_shared<ReflectionViewerWindow>());
 
     ws.Initialize(m_registry);
 
@@ -155,11 +171,20 @@ void Editor::Shutdown() {
 
     Core::Logger::Info("Editor", "Shutting down Kumari Editor...");
 
+    // Warn about unsaved changes but do not block shutdown —
+    // RequestClose() is for interactive cancel paths (OpenScene, NewScene).
+    // Shutdown is always unconditional; the caller decides whether to prompt
+    // the user before reaching this point.
+    if (IsDirty()) {
+        Core::Logger::Warning("Editor", "[Warning] Shutting down with unsaved scene changes!");
+    }
+
     // Save configuration
     m_config.Save("editor_config.ini");
+    DockingSystem::Get().SaveLayout("editor_config.ini");
 
-    // Check dirty and warn
-    RequestClose();
+    // Shutdown EditorManager
+    EditorManager::Get().Shutdown();
 
     // Shutdown window system
     WindowSystem::Get().Shutdown();
@@ -247,8 +272,11 @@ void Editor::SetDirty(bool dirty) {
 
 bool Editor::RequestClose() {
     if (IsDirty()) {
-        Core::Logger::Warning("Editor", "[Warning] Scene has unsaved changes! Prompting user...");
-        return true;
+        // Scene has unsaved changes. Return false so callers (OpenScene, NewScene)
+        // cancel their operation. The UI layer is expected to have already prompted
+        // the user before calling those functions, but this acts as a hard guard.
+        Core::Logger::Warning("Editor", "[Warning] Scene has unsaved changes! Operation cancelled.");
+        return false;
     }
     return true;
 }
